@@ -1,8 +1,10 @@
 # 災害対応AIエージェントシステム - 引継ぎ資料
 
 **作成日**: 2025年12月14日
-**バージョン**: MVP 1.0
+**更新日**: 2025年12月14日
+**バージョン**: MVP 1.1（16言語対応版）
 **作成者**: AI開発チーム（Claude Code + Perplexity + Gemini）
+**リポジトリ**: https://github.com/TTMK7777/Japan-Disaster-Alert
 
 ---
 
@@ -12,8 +14,8 @@
 日本の災害対応時に、発災状況・被害状況・多言語避難情報・日常防災情報を一元的に自治体・法人・個人に提供するAIエージェントシステム。
 
 ### 1.2 ターゲットユーザー
+- **訪日観光客**: 年間3,000万人超（TOP10カ国をカバー）
 - **在留外国人**: 約340万人（特にベトナム人52万人、中国人79万人、ネパール人17万人）
-- **訪日観光客**: 年間3,000万人超
 - **技能実習生**: 40万人超（やさしい日本語対応）
 - **自治体**: 外国人集住都市（100〜200自治体）
 
@@ -32,30 +34,52 @@
 |------|------|----------|
 | 地震情報取得 | ✅ 完成 | P2P地震情報APIからリアルタイム取得、30秒自動更新 |
 | 天気情報取得 | ✅ 完成 | 気象庁APIから都道府県別に取得 |
-| 多言語UI | ✅ 完成 | 7言語対応（日/英/中/韓/越/ネパール/やさしい日本語） |
+| **16言語対応** | ✅ 完成 | 訪日客TOP10カ国をカバー |
+| **ハイブリッド翻訳** | ✅ 完成 | 静的マッピング → Claude API → キャッシュの3層方式 |
+| **震源地名翻訳** | ✅ 完成 | 75地名 × 15言語の静的マッピング |
 | 震度別カラー表示 | ✅ 完成 | 気象庁準拠の震度カラーリング |
-| 防災チェックリスト | ✅ 完成 | 被災者の声を基にした実用的リスト（日英対応） |
 | レスポンシブUI | ✅ 完成 | モバイル・デスクトップ両対応 |
 
-### 2.2 未完成・課題のある機能
+### 2.2 対応言語（16言語）
+
+| コード | 言語 | 対象国・地域 | 訪日客数(2024) |
+|-------|------|------------|--------------|
+| ja | 日本語 | 日本 | - |
+| ko | 한국어 | 韓国 | 881万人（1位） |
+| zh | 简体中文 | 中国 | 698万人（2位） |
+| zh-TW | 繁體中文 | 台湾・香港 | 872万人（3位+5位） |
+| en | English | 米国・豪州・欧米 | 272万人（4位） |
+| th | ภาษาไทย | タイ | 10位 |
+| ms | Bahasa Melayu | マレーシア | 11位 |
+| id | Bahasa Indonesia | インドネシア | 15位 |
+| tl | Filipino | フィリピン | 技能実習生多数 |
+| vi | Tiếng Việt | ベトナム | 在留52万人 |
+| fr | Français | フランス | 16位 |
+| de | Deutsch | ドイツ | 14位 |
+| it | Italiano | イタリア | 17位 |
+| es | Español | スペイン | 18位 |
+| ne | नेपाली | ネパール | 在留17万人 |
+| easy_ja | やさしい日本語 | 日本語学習者 | - |
+
+### 2.3 未完成・次フェーズの機能
 
 | 機能 | 状態 | 課題 |
 |------|------|------|
-| **地震情報の多言語翻訳** | ⚠️ 未実装 | 場所名（和歌山県北部等）が日本語のまま |
 | 避難所検索 | 🔧 基盤のみ | データソース未連携 |
 | プッシュ通知 | ❌ 未実装 | FCM/APNs連携が必要 |
 | LINE連携 | ❌ 未実装 | LINE Messaging API連携が必要 |
 | SNS情報収集 | ❌ 未実装 | X API有料化（$100〜/月） |
 | デマ検出AI | ❌ 未実装 | 自然言語処理モデル必要 |
 
-### 2.3 技術スタック
+### 2.4 技術スタック
 
 ```
 バックエンド:
 ├── Python 3.12
 ├── FastAPI
 ├── httpx（非同期HTTP）
-└── Pydantic（データ検証）
+├── Pydantic（データ検証）
+└── Claude API（未登録地名の翻訳用・オプション）
 
 フロントエンド:
 ├── Next.js 14.2
@@ -66,8 +90,7 @@
 
 データソース:
 ├── 気象庁 JSON API（無料）
-├── P2P地震情報 API（無料）
-└── Claude API（翻訳用、未連携）
+└── P2P地震情報 API（無料）
 ```
 
 ---
@@ -76,6 +99,7 @@
 
 ```
 災害対応AI/
+├── .gitignore               # Git除外設定
 ├── PROJECT_PLAN.md          # 詳細プロジェクト計画書（競合分析・収益モデル含む）
 ├── README.md                # 開発者向けセットアップガイド
 ├── docs/
@@ -87,12 +111,13 @@
 │   │   ├── models.py        # Pydantic データモデル
 │   │   └── services/
 │   │       ├── __init__.py
-│   │       ├── jma_service.py    # 気象庁API連携
-│   │       ├── p2p_service.py    # P2P地震情報連携
-│   │       └── translator.py     # 多言語翻訳（テンプレートベース）
+│   │       ├── jma_service.py           # 気象庁API連携
+│   │       ├── p2p_service.py           # P2P地震情報連携
+│   │       ├── translator.py            # 多言語翻訳サービス
+│   │       └── location_translations.py # 震源地名静的翻訳（75地名×15言語）
 │   ├── requirements.txt
 │   ├── run.py               # 開発サーバー起動
-│   └── venv/                # Python仮想環境
+│   └── venv/                # Python仮想環境（Git除外）
 ├── frontend/
 │   ├── src/
 │   │   ├── app/
@@ -107,204 +132,72 @@
 │   ├── package.json
 │   ├── next.config.js
 │   ├── tailwind.config.js
-│   └── tsconfig.json
+│   ├── tsconfig.json
+│   └── node_modules/        # npmパッケージ（Git除外）
 ├── scripts/
 │   └── start_dev.sh         # 開発環境一括起動
-└── data/                    # データ格納用（未使用）
+└── data/
+    └── translation_cache.json  # 翻訳キャッシュ（Git除外）
 ```
 
 ---
 
 ## 4. 重要な実装詳細
 
-### 4.1 地震情報取得（frontend/src/components/EarthquakeList.tsx）
+### 4.1 ハイブリッド翻訳システム
 
-```typescript
-// P2P地震情報APIから直接取得
-const response = await fetch(
-  `https://api.p2pquake.net/v2/history?codes=551&limit=10`
-);
-
-// 震度マッピング
-const intensityMap: Record<number, string> = {
-  10: '1', 20: '2', 30: '3', 40: '4',
-  45: '5弱', 50: '5強', 55: '6弱', 60: '6強', 70: '7'
-};
+```
+翻訳リクエスト
+    ↓
+[1. 静的マッピング]  → 75地名 × 15言語を即座に返却（無料・高速）
+    ↓ (未登録の場合)
+[2. キャッシュ確認]  → 過去の翻訳結果を返却
+    ↓ (未キャッシュの場合)
+[3. Claude API]      → 動的翻訳 → 結果をキャッシュ保存
+    ↓ (APIキー未設定の場合)
+[4. フォールバック] → 元の日本語テキストを返却
 ```
 
-**課題**: `hypocenter.name`（震源地名）が日本語のまま返却される。
+**関連ファイル**:
+- `backend/app/services/location_translations.py` - 静的マッピング
+- `backend/app/services/translator.py` - 翻訳サービス本体
+- `backend/app/main.py` - APIエンドポイント
 
-### 4.2 多言語翻訳（backend/app/services/translator.py）
+### 4.2 地震情報取得フロー
 
-現在はテンプレートベースの翻訳のみ実装：
+```
+Frontend (EarthquakeList.tsx)
+    ↓ GET /api/v1/earthquakes?limit=10&lang=en
+Backend (main.py)
+    ↓
+P2P地震情報 API (https://api.p2pquake.net/v2/history)
+    ↓
+translator.translate_location() で震源地名翻訳
+    ↓
+translator.translate_tsunami_warning() で津波情報翻訳
+    ↓
+_generate_translated_message() でメッセージ生成
+    ↓
+翻訳済みJSONレスポンス
+```
+
+### 4.3 メッセージ翻訳テンプレート
 
 ```python
-TEMPLATES = {
-    "earthquake": {
-        "ja": "【地震情報】{location}で地震がありました...",
-        "en": "[Earthquake] An earthquake occurred in {location}...",
-        # 他言語...
-    },
-    "tsunami_warning": { ... },
-    "evacuation": { ... },
+# backend/app/main.py
+templates = {
+    "en": "[Earthquake] An earthquake occurred in {location}. Magnitude {magnitude}, Maximum intensity {intensity}. Depth: {depth}km. {tsunami_info}",
+    "zh": "【地震信息】{location}发生地震。震级{magnitude}，最大震度{intensity}。震源深度约{depth}公里。{tsunami_info}",
+    "th": "[แผ่นดินไหว] เกิดแผ่นดินไหวที่ {location} ขนาด {magnitude} ความรุนแรงสูงสุด {intensity} ความลึก: {depth} กม. {tsunami_info}",
+    # ... 15言語すべてに対応
 }
 ```
 
-**課題**: 動的な地名（「和歌山県北部」等）の翻訳が未実装。
-
-### 4.3 天気情報取得（frontend/src/components/WeatherInfo.tsx）
-
-```typescript
-// 気象庁APIから直接取得
-const response = await fetch(
-  `https://www.jma.go.jp/bosai/forecast/data/overview_forecast/${selectedArea}.json`
-);
-```
-
 ---
 
-## 5. 今後の実装方針
+## 5. 起動方法
 
-### 5.1 優先度: 高（Phase 2: 1〜2週間）
-
-#### 5.1.1 地震情報の多言語翻訳
-
-**課題**: 震源地名（和歌山県北部、福島県沖等）が日本語のまま
-
-**実装方針**:
-
-1. **静的マッピング方式**（推奨・低コスト）
-   ```python
-   # backend/app/services/translator.py に追加
-   LOCATION_TRANSLATIONS = {
-       "和歌山県北部": {
-           "en": "Northern Wakayama Prefecture",
-           "zh": "和歌山县北部",
-           "ko": "와카야마현 북부",
-           "vi": "Bắc tỉnh Wakayama",
-           "ne": "वाकायामा प्रान्तको उत्तरी भाग",
-       },
-       "福島県沖": {
-           "en": "Off the Coast of Fukushima Prefecture",
-           # ...
-       },
-       # 気象庁の震源地リスト（約100箇所）を網羅
-   }
-   ```
-
-   **メリット**: 無料、高速、確実
-   **デメリット**: 初期作成の手間、新しい地名への対応
-
-2. **Claude API連携方式**（高品質・有料）
-   ```python
-   # Claude APIで動的翻訳
-   async def translate_with_claude(text: str, target_lang: str) -> str:
-       response = await anthropic.messages.create(
-           model="claude-3-haiku-20240307",
-           messages=[{
-               "role": "user",
-               "content": f"Translate to {target_lang}: {text}"
-           }]
-       )
-       return response.content[0].text
-   ```
-
-   **コスト**: Claude Haiku = $0.00025/1K入力 + $0.00125/1K出力
-   **メリット**: 高品質、新地名にも対応
-   **デメリット**: API費用、レイテンシ
-
-3. **ハイブリッド方式**（推奨）
-   - 既知の地名 → 静的マッピング
-   - 未知の地名 → Claude API（結果をキャッシュ）
-
-#### 5.1.2 バックエンドAPI経由の多言語化
-
-現在フロントエンドから直接外部APIを叩いているが、バックエンド経由に変更：
-
-```
-現在: Frontend → P2P API
-変更: Frontend → Backend API → P2P API + 翻訳
-```
-
-**修正箇所**:
-- `frontend/src/components/EarthquakeList.tsx`: APIエンドポイントを `/api/v1/earthquakes?lang=en` に変更
-- `backend/app/main.py`: 翻訳処理を追加
-
-### 5.2 優先度: 中（Phase 3: 2〜4週間）
-
-#### 5.2.1 避難所マップ機能
-
-**データソース候補**:
-1. [国土地理院 指定緊急避難場所データ](https://www.gsi.go.jp/bousaichiri/hinanbasho.html)
-2. 各自治体のオープンデータ
-3. [G空間情報センター](https://www.geospatial.jp/)
-
-**実装方針**:
-```typescript
-// frontend/src/components/ShelterMap.tsx
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-
-// 現在地から最寄りの避難所を表示
-// Haversine公式で距離計算
-```
-
-#### 5.2.2 プッシュ通知
-
-**技術選定**:
-- **Web Push**: Service Worker + FCM（Firebase Cloud Messaging）
-- **LINE**: LINE Messaging API（無料枠: 月200通）
-
-### 5.3 優先度: 低（Phase 4: 1〜3ヶ月）
-
-#### 5.3.1 SNS情報収集
-
-**課題**: X API有料化（Basic: $100/月、Pro: $5,000/月）
-
-**代替案**:
-1. Bluesky API（無料）
-2. Mastodon API（無料）
-3. 公式情報のみに絞る（気象庁、自治体）
-
-#### 5.3.2 デマ検出AI
-
-**実装方針**:
-1. 公式情報との照合
-2. 投稿の信頼度スコアリング
-3. Claude APIによるファクトチェック
-
----
-
-## 6. API仕様
-
-### 6.1 現在のエンドポイント
-
-| エンドポイント | メソッド | パラメータ | 説明 |
-|--------------|--------|-----------|------|
-| `/` | GET | - | ヘルスチェック |
-| `/api/v1/earthquakes` | GET | `limit`, `lang` | 地震情報取得 |
-| `/api/v1/weather/{area_code}` | GET | `lang` | 天気情報取得 |
-| `/api/v1/alerts` | GET | `lang` | 警報・注意報取得 |
-| `/api/v1/translate` | POST | `text`, `target_lang` | テキスト翻訳 |
-| `/api/v1/shelters` | GET | `lat`, `lon`, `radius` | 避難所検索 |
-| `/api/v1/languages` | GET | - | 対応言語一覧 |
-
-### 6.2 地域コード（気象庁）
-
-```python
-# 主要都市
-"130000": "東京都"
-"270000": "大阪府"
-"140000": "神奈川県"
-"230000": "愛知県"
-"400000": "福岡県"
-# 全47都道府県対応（backend/app/services/jma_service.py参照）
-```
-
----
-
-## 7. 起動方法
-
-### 7.1 開発環境
+### 5.1 開発環境
 
 ```bash
 # プロジェクトディレクトリ
@@ -322,47 +215,100 @@ npm run dev
 # → http://localhost:3001
 ```
 
-### 7.2 一括起動
+### 5.2 APIテスト例
 
 ```bash
-./scripts/start_dev.sh
+# 日本語
+curl "http://localhost:8000/api/v1/earthquakes?limit=1&lang=ja"
+
+# 英語
+curl "http://localhost:8000/api/v1/earthquakes?limit=1&lang=en"
+
+# タイ語
+curl "http://localhost:8000/api/v1/earthquakes?limit=1&lang=th"
+
+# 対応言語一覧
+curl "http://localhost:8000/api/v1/languages"
 ```
 
 ---
 
-## 8. 外部サービス・API
+## 6. API仕様
 
-### 8.1 現在使用中（無料）
+### 6.1 エンドポイント一覧
 
-| サービス | 用途 | 制限 |
-|---------|------|------|
-| 気象庁 JSON API | 天気・地震情報 | なし（公共データ） |
-| P2P地震情報 API | 地震速報 | なし |
+| エンドポイント | メソッド | パラメータ | 説明 |
+|--------------|--------|-----------|------|
+| `/` | GET | - | ヘルスチェック |
+| `/api/v1/earthquakes` | GET | `limit`, `lang` | 地震情報取得（翻訳付き） |
+| `/api/v1/weather/{area_code}` | GET | `lang` | 天気情報取得 |
+| `/api/v1/alerts` | GET | `lang` | 警報・注意報取得 |
+| `/api/v1/translate` | POST | `text`, `target_lang` | テキスト翻訳 |
+| `/api/v1/shelters` | GET | `lat`, `lon`, `radius` | 避難所検索（開発中） |
+| `/api/v1/languages` | GET | - | 対応言語一覧 |
 
-### 8.2 今後連携予定（有料）
+### 6.2 言語コード
 
-| サービス | 用途 | 費用 |
-|---------|------|------|
-| Claude API (Haiku) | 多言語翻訳 | $0.00025/1K入力 |
-| DMDATA.JP | 緊急地震速報 WebSocket | 月額制 |
-| Firebase (FCM) | プッシュ通知 | 無料枠あり |
-| LINE Messaging API | LINE通知 | 月200通無料 |
+```
+ja, en, zh, zh-TW, ko, vi, th, id, ms, tl, fr, de, it, es, ne, easy_ja
+```
+
+### 6.3 レスポンス例（地震情報）
+
+```json
+{
+  "id": "693e4466e88ee598246be7ff",
+  "time": "2025/12/14 13:57:00",
+  "location": "和歌山県北部",
+  "location_translated": "Nord de la préfecture de Wakayama",
+  "magnitude": 2.3,
+  "max_intensity": "1",
+  "depth": 0,
+  "tsunami_warning": "なし",
+  "tsunami_warning_translated": "Aucun",
+  "message_translated": "[Séisme] Un séisme s'est produit à Nord de la préfecture de Wakayama. Magnitude 2.3, Intensité maximale 1. Profondeur: 0km. Il n'y a pas de risque de tsunami suite à ce séisme."
+}
+```
 
 ---
 
-## 9. 既知の問題・注意点
+## 7. 今後の開発予定
 
-### 9.1 技術的な問題
+### 7.1 優先度: 高
 
-1. **CORS**: フロントエンドから直接外部APIを叩いているため、一部ブラウザでCORSエラーの可能性
-   - **対策**: バックエンド経由に変更
+1. **避難所マップ機能**
+   - Leaflet/OpenStreetMap
+   - 国土地理院 指定緊急避難場所データ
 
-2. **レート制限**: 気象庁APIは明示的な制限なしだが、過度なアクセスは避ける
-   - **対策**: キャッシュ実装（Redis等）
+2. **プッシュ通知**
+   - FCM (Firebase Cloud Messaging)
+   - Service Worker
 
-3. **react-leaflet**: React 18必須（React 19非対応）
+### 7.2 優先度: 中
 
-### 9.2 法的・運用上の注意
+3. **LINE公式アカウント連携**
+   - LINE Messaging API
+   - 月200通無料枠
+
+4. **SNS情報収集**
+   - Bluesky API（無料代替）
+
+### 7.3 優先度: 低
+
+5. **デマ検出AI**
+6. **自治体向け管理画面**
+
+---
+
+## 8. 既知の問題・注意点
+
+### 8.1 技術的な注意
+
+1. **Claude APIキー**: 未設定でも動作するが、未登録地名は日本語のまま返却
+2. **react-leaflet**: React 18必須（React 19非対応）
+3. **レート制限**: 気象庁APIは過度なアクセスを避ける
+
+### 8.2 法的・運用上の注意
 
 1. **免責事項**: 災害情報の誤配信リスクへの法的対応が必要
 2. **個人情報**: 位置情報取得時の同意取得
@@ -370,34 +316,16 @@ npm run dev
 
 ---
 
-## 10. 参考リンク
+## 9. 参考リンク
 
-### ドキュメント
 - [気象庁 気象データ高度利用ポータル](https://www.data.jma.go.jp/developer/index.html)
 - [P2P地震情報 API仕様](https://www.p2pquake.net/develop/)
 - [Next.js ドキュメント](https://nextjs.org/docs)
 - [FastAPI ドキュメント](https://fastapi.tiangolo.com/)
-
-### 競合サービス
-- [Safety tips](https://www.rcsc.co.jp/safety-tips-jp) - 観光庁監修、15言語対応
-- [特務機関NERV防災](https://nerv.app/) - 速報性No.1
-- [Spectee Pro](https://spectee.co.jp/) - SNS×AI分析
-
-### 政策
-- [防災庁設置準備（内閣官房）](https://www.cas.go.jp/jp/seisaku/bousaichou_preparation/index.html)
-- [観光庁 インバウンド安全・安心対策](https://www.mlit.go.jp/kankocho/)
-
----
-
-## 11. 連絡先・質問
-
-プロジェクトに関する質問は以下のファイルを参照：
-- 詳細計画: `PROJECT_PLAN.md`
-- セットアップ: `README.md`
-- API仕様: `http://localhost:8000/docs`（Swagger UI）
+- [Claude API](https://docs.anthropic.com/)
 
 ---
 
 **以上、引継ぎ資料終わり**
 
-次のステップとして、**地震情報の多言語翻訳（静的マッピング）** から着手することを推奨します。
+次のステップとして、**避難所マップ機能** の実装を推奨します。
