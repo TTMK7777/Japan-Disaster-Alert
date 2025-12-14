@@ -1,10 +1,21 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import LanguageSelector from '@/components/LanguageSelector';
 import EarthquakeList from '@/components/EarthquakeList';
 import WeatherInfo from '@/components/WeatherInfo';
 import AlertBanner from '@/components/AlertBanner';
+
+// Leafletはクライアントサイドのみで動作するため、SSRを無効化
+const EarthquakeMap = dynamic(() => import('@/components/EarthquakeMap'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex justify-center items-center h-64 bg-gray-100 rounded-lg">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-disaster-blue"></div>
+    </div>
+  ),
+});
 
 // 多言語テキスト
 const translations: Record<string, Record<string, string>> = {
@@ -19,6 +30,8 @@ const translations: Record<string, Record<string, string>> = {
     loading: '読み込み中...',
     noData: 'データがありません',
     lastUpdate: '最終更新',
+    listView: 'リスト',
+    mapView: '地図',
   },
   en: {
     title: 'Disaster AI',
@@ -31,6 +44,8 @@ const translations: Record<string, Record<string, string>> = {
     loading: 'Loading...',
     noData: 'No data available',
     lastUpdate: 'Last update',
+    listView: 'List',
+    mapView: 'Map',
   },
   zh: {
     title: '灾害应对AI',
@@ -43,6 +58,8 @@ const translations: Record<string, Record<string, string>> = {
     loading: '加载中...',
     noData: '暂无数据',
     lastUpdate: '最后更新',
+    listView: '列表',
+    mapView: '地图',
   },
   ko: {
     title: '재난대응AI',
@@ -55,6 +72,8 @@ const translations: Record<string, Record<string, string>> = {
     loading: '로딩 중...',
     noData: '데이터가 없습니다',
     lastUpdate: '마지막 업데이트',
+    listView: '목록',
+    mapView: '지도',
   },
   vi: {
     title: 'AI Ứng phó Thiên tai',
@@ -67,6 +86,8 @@ const translations: Record<string, Record<string, string>> = {
     loading: 'Đang tải...',
     noData: 'Không có dữ liệu',
     lastUpdate: 'Cập nhật lần cuối',
+    listView: 'Danh sách',
+    mapView: 'Bản đồ',
   },
   ne: {
     title: 'विपद् प्रतिक्रिया AI',
@@ -79,6 +100,8 @@ const translations: Record<string, Record<string, string>> = {
     loading: 'लोड हुँदैछ...',
     noData: 'डाटा छैन',
     lastUpdate: 'अन्तिम अद्यावधिक',
+    listView: 'सूची',
+    mapView: 'नक्सा',
   },
   easy_ja: {
     title: 'さいがい じょうほう',
@@ -91,17 +114,65 @@ const translations: Record<string, Record<string, string>> = {
     loading: 'よみこみちゅう...',
     noData: 'データが ありません',
     lastUpdate: 'さいしん',
+    listView: 'リスト',
+    mapView: 'ちず',
   },
 };
 
+// 地震データの型定義
+interface Earthquake {
+  id: string;
+  time: string;
+  location: string;
+  location_translated?: string;
+  magnitude: number;
+  max_intensity: string;
+  max_intensity_translated?: string;
+  depth: number;
+  latitude: number;
+  longitude: number;
+  tsunami_warning: string;
+  tsunami_warning_translated?: string;
+  message: string;
+  message_translated?: string;
+}
+
+// バックエンドAPIのベースURL
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 type TabType = 'earthquake' | 'weather' | 'shelter' | 'checklist';
+
+type EarthquakeViewType = 'list' | 'map';
 
 export default function Home() {
   const [language, setLanguage] = useState('ja');
   const [activeTab, setActiveTab] = useState<TabType>('earthquake');
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [earthquakeView, setEarthquakeView] = useState<EarthquakeViewType>('list');
+  const [earthquakes, setEarthquakes] = useState<Earthquake[]>([]);
+  const [earthquakeLoading, setEarthquakeLoading] = useState(true);
 
   const t = translations[language] || translations.ja;
+
+  // 地震データの取得
+  useEffect(() => {
+    async function fetchEarthquakes() {
+      try {
+        setEarthquakeLoading(true);
+        const response = await fetch(`${API_BASE_URL}/api/v1/earthquakes?lang=${language}&limit=20`);
+        if (response.ok) {
+          const data = await response.json();
+          setEarthquakes(data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch earthquakes:', err);
+      } finally {
+        setEarthquakeLoading(false);
+      }
+    }
+
+    fetchEarthquakes();
+  }, [language, lastUpdate]);
 
   useEffect(() => {
     // 30秒ごとにデータを更新
@@ -159,7 +230,49 @@ export default function Home() {
 
         {/* タブコンテンツ */}
         {activeTab === 'earthquake' && (
-          <EarthquakeList language={language} />
+          <div className="space-y-4">
+            {/* リスト/地図切り替えボタン */}
+            <div className="flex justify-end">
+              <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
+                <button
+                  onClick={() => setEarthquakeView('list')}
+                  className={`px-4 py-2 text-sm font-medium transition-colors ${
+                    earthquakeView === 'list'
+                      ? 'bg-disaster-blue text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  {t.listView || 'List'}
+                </button>
+                <button
+                  onClick={() => setEarthquakeView('map')}
+                  className={`px-4 py-2 text-sm font-medium transition-colors ${
+                    earthquakeView === 'map'
+                      ? 'bg-disaster-blue text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  {t.mapView || 'Map'}
+                </button>
+              </div>
+            </div>
+
+            {/* リスト表示 */}
+            {earthquakeView === 'list' && (
+              <EarthquakeList language={language} />
+            )}
+
+            {/* 地図表示 */}
+            {earthquakeView === 'map' && (
+              earthquakeLoading ? (
+                <div className="flex justify-center items-center h-64 bg-white rounded-lg shadow">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-disaster-blue"></div>
+                </div>
+              ) : (
+                <EarthquakeMap earthquakes={earthquakes} language={language} />
+              )
+            )}
+          </div>
         )}
 
         {activeTab === 'weather' && (

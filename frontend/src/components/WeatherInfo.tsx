@@ -4,11 +4,16 @@ import { useState, useEffect } from 'react';
 
 interface WeatherData {
   area: string;
+  area_code?: string;
   publishing_office: string;
   report_datetime: string;
   headline?: string;
   text: string;
+  text_translated?: string;
 }
+
+// バックエンドAPIのベースURL
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 interface WeatherInfoProps {
   language: string;
@@ -38,7 +43,7 @@ export default function WeatherInfo({ language }: WeatherInfoProps) {
       try {
         setLoading(true);
         const response = await fetch(
-          `https://www.jma.go.jp/bosai/forecast/data/overview_forecast/${selectedArea}.json`
+          `${API_BASE_URL}/api/v1/weather/${selectedArea}?lang=${language}`
         );
 
         if (!response.ok) {
@@ -47,11 +52,13 @@ export default function WeatherInfo({ language }: WeatherInfoProps) {
 
         const data = await response.json();
         setWeather({
-          area: data.targetArea || '',
-          publishing_office: data.publishingOffice || '気象庁',
-          report_datetime: data.reportDatetime || '',
-          headline: data.headlineText,
+          area: data.area || data.targetArea || '',
+          area_code: data.area_code,
+          publishing_office: data.publishing_office || data.publishingOffice || '気象庁',
+          report_datetime: data.report_datetime || data.reportDatetime || '',
+          headline: data.headline || data.headlineText,
           text: data.text || '',
+          text_translated: data.text_translated,
         });
         setError(null);
       } catch (err) {
@@ -62,7 +69,7 @@ export default function WeatherInfo({ language }: WeatherInfoProps) {
     }
 
     fetchWeather();
-  }, [selectedArea]);
+  }, [selectedArea, language]);
 
   return (
     <div className="space-y-4">
@@ -112,8 +119,18 @@ export default function WeatherInfo({ language }: WeatherInfoProps) {
 
           <div className="prose prose-sm max-w-none">
             <p className="whitespace-pre-wrap text-gray-700 leading-relaxed">
-              {weather.text}
+              {weather.text_translated || weather.text}
             </p>
+            {weather.text_translated && language !== 'ja' && (
+              <details className="mt-3">
+                <summary className="text-sm text-gray-500 cursor-pointer hover:text-gray-700">
+                  {language === 'ja' ? '原文を表示' : 'Show original (Japanese)'}
+                </summary>
+                <p className="whitespace-pre-wrap text-gray-500 text-sm mt-2 leading-relaxed">
+                  {weather.text}
+                </p>
+              </details>
+            )}
           </div>
 
           <div className="mt-4 pt-4 border-t text-sm text-gray-500">

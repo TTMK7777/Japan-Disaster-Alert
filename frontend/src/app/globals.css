@@ -44,3 +44,31 @@ body {
 .pulse-alert {
   animation: pulse-alert 1s ease-in-out infinite;
 }
+
+/* Leaflet地図コンテナ */
+.leaflet-container {
+  height: 400px;
+  width: 100%;
+  border-radius: 0.5rem;
+  z-index: 0;
+}
+
+/* 地震マーカーのスタイル */
+.earthquake-marker {
+  background: transparent;
+  border: none;
+}
+
+/* Leafletポップアップのカスタマイズ */
+.leaflet-popup-content-wrapper {
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.leaflet-popup-content {
+  margin: 12px;
+}
+
+.leaflet-popup-tip {
+  box-shadow: none;
+}
