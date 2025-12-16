@@ -99,3 +99,48 @@ class NotificationPreference(BaseModel):
     weather_alerts: bool = True
     tsunami_alerts: bool = True
     areas: list[str] = []  # 監視対象地域
+
+
+class TsunamiInfo(BaseModel):
+    """津波情報"""
+    id: str
+    event_id: str  # 地震イベントID
+    title: str
+    title_en: Optional[str] = None
+    report_datetime: str
+    earthquake_time: Optional[str] = None
+    earthquake_location: str
+    earthquake_location_en: Optional[str] = None
+    magnitude: Optional[str] = None
+    coordinates: Optional[str] = None  # 緯度経度
+    warning_level: str  # none, advisory, warning, major_warning
+    areas: list[dict] = []  # 影響を受ける地域
+    message: str
+    message_translated: Optional[str] = None
+
+
+class VolcanoInfo(BaseModel):
+    """火山情報"""
+    code: int
+    name: str
+    name_en: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    alert_level: Optional[int] = None  # 噴火警戒レベル（1-5）
+    alert_level_text: Optional[str] = None
+    is_monitored: bool = False  # 常時観測火山かどうか
+    last_updated: Optional[str] = None
+    message: Optional[str] = None
+    message_translated: Optional[str] = None
+
+
+class VolcanoWarning(BaseModel):
+    """火山警報"""
+    volcano_code: int
+    volcano_name: Optional[str] = None
+    alert_level: int
+    alert_level_name: str
+    severity: str  # low, medium, high, extreme
+    action: str  # 推奨される行動
+    issued_at: str
+    headline: Optional[str] = None

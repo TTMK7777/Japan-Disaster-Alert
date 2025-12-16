@@ -14,16 +14,28 @@ from .models import (
     WeatherInfo,
     DisasterAlert,
     HealthResponse,
-    TranslatedMessage
+    TranslatedMessage,
+    ShelterInfo,
+    TsunamiInfo,
+    VolcanoInfo,
+    VolcanoWarning
 )
 from .services.jma_service import JMAService
 from .services.p2p_service import P2PQuakeService
 from .services.translator import TranslatorService
+from .services.warning_service import WarningService
+from .services.tsunami_service import TsunamiService
+from .services.volcano_service import VolcanoService
+from .services.shelter_service import ShelterService
 
 # サービスインスタンス
 jma_service = JMAService()
 p2p_service = P2PQuakeService()
 translator = TranslatorService()
+warning_service = WarningService()
+tsunami_service = TsunamiService()
+volcano_service = VolcanoService()
+shelter_service = ShelterService()
 
 
 @asynccontextmanager
@@ -193,16 +205,31 @@ async def get_weather(area_code: str, lang: str = "ja"):
 
 
 @app.get("/api/v1/alerts", response_model=list[DisasterAlert])
-async def get_alerts(lang: str = "ja"):
+async def get_alerts(area_code: str = "130000", lang: str = "ja"):
     """
     現在発令中の警報・注意報を取得
+
+    - **area_code**: 地域コード（例: 130000=東京都）
+    - **lang**: 言語コード（ja, en, zh, ko, vi, easy_ja）
+    """
+    try:
+        # 警報サービスに多言語翻訳が組み込まれているため直接取得
+        alerts = await warning_service.get_warnings(area_code, lang)
+        return alerts
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/warnings/special", response_model=list[DisasterAlert])
+async def get_special_warnings(lang: str = "ja"):
+    """
+    全国の特別警報を取得
 
     - **lang**: 言語コード
     """
     try:
-        alerts = await jma_service.get_current_alerts()
+        alerts = await warning_service.get_special_warnings()
 
-        # 多言語翻訳
         if lang != "ja":
             for alert in alerts:
                 alert.title_translated = await translator.translate(
@@ -237,22 +264,142 @@ async def translate_message(text: str, target_lang: str = "en"):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/v1/shelters")
-async def get_nearby_shelters(lat: float, lon: float, radius: float = 5.0):
+@app.get("/api/v1/shelters", response_model=list[ShelterInfo])
+async def get_nearby_shelters(
+    lat: float,
+    lon: float,
+    radius: float = 5.0,
+    limit: int = 20,
+    disaster_type: Optional[str] = None,
+    lang: str = "ja"
+):
     """
     現在地周辺の避難所を検索
 
     - **lat**: 緯度
     - **lon**: 経度
     - **radius**: 検索半径（km）
+    - **limit**: 取得件数上限
+    - **disaster_type**: 災害種別（earthquake, tsunami, flood等）
+    - **lang**: 言語コード
     """
-    # TODO: 避難所データベースとの連携
-    return {
-        "message": "避難所検索機能は開発中です",
-        "lat": lat,
-        "lon": lon,
-        "radius": radius
-    }
+    try:
+        shelters = shelter_service.get_nearby_shelters(
+            lat=lat,
+            lon=lon,
+            radius_km=radius,
+            limit=limit,
+            disaster_type=disaster_type
+        )
+
+        # 多言語翻訳
+        if lang != "ja":
+            for shelter in shelters:
+                shelter.name_translated = await translator.translate(
+                    shelter.name, target_lang=lang
+                )
+
+        return shelters
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/shelters/types")
+async def get_shelter_disaster_types():
+    """対応している災害種別一覧を取得"""
+    return shelter_service.get_disaster_types()
+
+
+@app.get("/api/v1/tsunami", response_model=list[TsunamiInfo])
+async def get_tsunami_info(limit: int = 10, lang: str = "ja"):
+    """
+    津波情報を取得
+
+    - **limit**: 取得件数
+    - **lang**: 言語コード
+    """
+    try:
+        tsunamis = await tsunami_service.get_tsunami_list(limit=limit)
+
+        # 多言語翻訳
+        if lang != "ja":
+            for tsunami in tsunamis:
+                tsunami.message_translated = await translator.translate(
+                    tsunami.message, target_lang=lang
+                )
+
+        return tsunamis
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/tsunami/active", response_model=list[TsunamiInfo])
+async def get_active_tsunami_warnings(lang: str = "ja"):
+    """
+    現在発令中の津波警報・注意報を取得
+
+    - **lang**: 言語コード
+    """
+    try:
+        tsunamis = await tsunami_service.get_active_warnings()
+
+        if lang != "ja":
+            for tsunami in tsunamis:
+                tsunami.message_translated = await translator.translate(
+                    tsunami.message, target_lang=lang
+                )
+
+        return tsunamis
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/volcanoes", response_model=list[VolcanoInfo])
+async def get_volcanoes(monitored_only: bool = True):
+    """
+    火山情報を取得
+
+    - **monitored_only**: 常時観測火山のみ取得（デフォルト: True）
+    """
+    try:
+        if monitored_only:
+            return await volcano_service.get_monitored_volcanoes()
+        else:
+            return await volcano_service.get_volcano_list()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/volcanoes/warnings")
+async def get_volcano_warnings(lang: str = "ja"):
+    """
+    火山警報を取得
+
+    - **lang**: 言語コード
+    """
+    try:
+        warnings = await volcano_service.get_volcano_warnings()
+        return warnings
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/volcanoes/{volcano_code}", response_model=VolcanoInfo)
+async def get_volcano_by_code(volcano_code: int):
+    """
+    特定の火山情報を取得
+
+    - **volcano_code**: 火山コード
+    """
+    try:
+        volcano = await volcano_service.get_volcano_by_code(volcano_code)
+        if not volcano:
+            raise HTTPException(status_code=404, detail="火山が見つかりません")
+        return volcano
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # 対応言語一覧（15言語 + 日本語）

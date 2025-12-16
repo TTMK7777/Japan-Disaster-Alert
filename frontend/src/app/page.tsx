@@ -6,6 +6,8 @@ import LanguageSelector from '@/components/LanguageSelector';
 import EarthquakeList from '@/components/EarthquakeList';
 import WeatherInfo from '@/components/WeatherInfo';
 import EmergencyAlert from '@/components/EmergencyAlert';
+import WarningBanner from '@/components/WarningBanner';
+import VolcanoAlert from '@/components/VolcanoAlert';
 import { EarthquakeIcon, ShelterIcon } from '@/components/icons/DisasterIcons';
 
 // Error Boundary コンポーネント
@@ -84,10 +86,12 @@ const translations: Record<string, Record<string, string>> = {
   ja: {
     title: '災害対応AI',
     subtitle: '多言語災害情報システム',
-    earthquake: '地震情報',
-    weather: '天気情報',
+    earthquake: '地震',
+    warning: '警報',
+    weather: '天気',
+    volcano: '火山',
     shelter: '避難所',
-    checklist: '防災グッズ',
+    checklist: '防災',
     settings: '設定',
     loading: '読み込み中...',
     noData: 'データがありません',
@@ -101,10 +105,12 @@ const translations: Record<string, Record<string, string>> = {
   en: {
     title: 'Disaster AI',
     subtitle: 'Multilingual Disaster Info',
-    earthquake: 'Earthquakes',
+    earthquake: 'Quakes',
+    warning: 'Alerts',
     weather: 'Weather',
+    volcano: 'Volcano',
     shelter: 'Shelters',
-    checklist: 'Emergency Kit',
+    checklist: 'Kit',
     settings: 'Settings',
     loading: 'Loading...',
     noData: 'No data available',
@@ -119,7 +125,9 @@ const translations: Record<string, Record<string, string>> = {
     title: '灾害应对AI',
     subtitle: '多语言灾害信息系统',
     earthquake: '地震信息',
+    warning: '警报',
     weather: '天气信息',
+    volcano: '火山',
     shelter: '避难所',
     checklist: '防灾清单',
     settings: '设置',
@@ -136,7 +144,9 @@ const translations: Record<string, Record<string, string>> = {
     title: '災害應對AI',
     subtitle: '多語言災害資訊系統',
     earthquake: '地震資訊',
+    warning: '警報',
     weather: '天氣資訊',
+    volcano: '火山',
     shelter: '避難所',
     checklist: '防災清單',
     settings: '設定',
@@ -153,7 +163,9 @@ const translations: Record<string, Record<string, string>> = {
     title: '재난대응AI',
     subtitle: '다국어 재난 정보 시스템',
     earthquake: '지진 정보',
+    warning: '경보',
     weather: '날씨 정보',
+    volcano: '화산',
     shelter: '대피소',
     checklist: '방재 체크리스트',
     settings: '설정',
@@ -170,7 +182,9 @@ const translations: Record<string, Record<string, string>> = {
     title: 'AI Ứng phó Thiên tai',
     subtitle: 'Hệ thống thông tin đa ngôn ngữ',
     earthquake: 'Động đất',
+    warning: 'Cảnh báo',
     weather: 'Thời tiết',
+    volcano: 'Núi lửa',
     shelter: 'Nơi trú ẩn',
     checklist: 'Danh sách',
     settings: 'Cài đặt',
@@ -187,7 +201,9 @@ const translations: Record<string, Record<string, string>> = {
     title: 'AI รับมือภัยพิบัติ',
     subtitle: 'ระบบข้อมูลภัยพิบัติหลายภาษา',
     earthquake: 'แผ่นดินไหว',
+    warning: 'คำเตือน',
     weather: 'สภาพอากาศ',
+    volcano: 'ภูเขาไฟ',
     shelter: 'ที่พักพิง',
     checklist: 'รายการ',
     settings: 'ตั้งค่า',
@@ -204,7 +220,9 @@ const translations: Record<string, Record<string, string>> = {
     title: 'AI Bencana',
     subtitle: 'Sistem Info Bencana Multibahasa',
     earthquake: 'Gempa',
+    warning: 'Peringatan',
     weather: 'Cuaca',
+    volcano: 'Gunung Api',
     shelter: 'Tempat Pengungsian',
     checklist: 'Daftar',
     settings: 'Pengaturan',
@@ -221,7 +239,9 @@ const translations: Record<string, Record<string, string>> = {
     title: 'AI Bencana',
     subtitle: 'Sistem Maklumat Berbilang Bahasa',
     earthquake: 'Gempa Bumi',
+    warning: 'Amaran',
     weather: 'Cuaca',
+    volcano: 'Gunung Berapi',
     shelter: 'Tempat Perlindungan',
     checklist: 'Senarai',
     settings: 'Tetapan',
@@ -238,7 +258,9 @@ const translations: Record<string, Record<string, string>> = {
     title: 'AI Sakuna',
     subtitle: 'Multi-Language na Impormasyon',
     earthquake: 'Lindol',
+    warning: 'Babala',
     weather: 'Panahon',
+    volcano: 'Bulkan',
     shelter: 'Evacuation Center',
     checklist: 'Listahan',
     settings: 'Mga Setting',
@@ -255,7 +277,9 @@ const translations: Record<string, Record<string, string>> = {
     title: 'विपद् प्रतिक्रिया AI',
     subtitle: 'बहुभाषिक विपद् सूचना',
     earthquake: 'भूकम्प',
+    warning: 'चेतावनी',
     weather: 'मौसम',
+    volcano: 'ज्वालामुखी',
     shelter: 'आश्रय',
     checklist: 'सूची',
     settings: 'सेटिङ',
@@ -272,7 +296,9 @@ const translations: Record<string, Record<string, string>> = {
     title: 'IA Catastrophe',
     subtitle: 'Système multilingue',
     earthquake: 'Séismes',
+    warning: 'Alertes',
     weather: 'Météo',
+    volcano: 'Volcan',
     shelter: 'Abris',
     checklist: 'Liste',
     settings: 'Paramètres',
@@ -289,7 +315,9 @@ const translations: Record<string, Record<string, string>> = {
     title: 'Katastrophen-KI',
     subtitle: 'Mehrsprachiges System',
     earthquake: 'Erdbeben',
+    warning: 'Warnungen',
     weather: 'Wetter',
+    volcano: 'Vulkan',
     shelter: 'Notunterkünfte',
     checklist: 'Checkliste',
     settings: 'Einstellungen',
@@ -306,7 +334,9 @@ const translations: Record<string, Record<string, string>> = {
     title: 'AI Disastri',
     subtitle: 'Sistema multilingue',
     earthquake: 'Terremoti',
+    warning: 'Allerte',
     weather: 'Meteo',
+    volcano: 'Vulcano',
     shelter: 'Rifugi',
     checklist: 'Lista',
     settings: 'Impostazioni',
@@ -323,7 +353,9 @@ const translations: Record<string, Record<string, string>> = {
     title: 'IA Desastres',
     subtitle: 'Sistema multilingüe',
     earthquake: 'Terremotos',
+    warning: 'Alertas',
     weather: 'Clima',
+    volcano: 'Volcán',
     shelter: 'Refugios',
     checklist: 'Lista',
     settings: 'Configuración',
@@ -340,7 +372,9 @@ const translations: Record<string, Record<string, string>> = {
     title: 'さいがい じょうほう',
     subtitle: 'やさしい にほんご',
     earthquake: 'じしん',
+    warning: 'けいほう',
     weather: 'てんき',
+    volcano: 'かざん',
     shelter: 'ひなんじょ',
     checklist: 'もちもの',
     settings: 'せってい',
@@ -376,7 +410,7 @@ interface Earthquake {
 // バックエンドAPIのベースURL
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-type TabType = 'earthquake' | 'weather' | 'shelter' | 'checklist';
+type TabType = 'earthquake' | 'warning' | 'volcano' | 'shelter' | 'checklist';
 type EarthquakeViewType = 'list' | 'map';
 
 // タブアイコンコンポーネント
@@ -387,14 +421,20 @@ function TabIcon({ tab, active }: { tab: TabType; active: boolean }) {
   switch (tab) {
     case 'earthquake':
       return <EarthquakeIcon size={size} className={active ? '' : 'opacity-60'} />;
-    case 'shelter':
-      return <ShelterIcon size={size} className={active ? '' : 'opacity-60'} />;
-    case 'weather':
+    case 'warning':
       return (
         <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
-          <path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1z" />
+          <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" />
         </svg>
       );
+    case 'volcano':
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+          <path d="M12 2L8 8h2v4H8l-6 10h20l-6-10h-2V8h2L12 2zm0 4.5L13.5 9h-3L12 6.5z" />
+        </svg>
+      );
+    case 'shelter':
+      return <ShelterIcon size={size} className={active ? '' : 'opacity-60'} />;
     case 'checklist':
       return (
         <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
@@ -441,8 +481,9 @@ const errorMessages: Record<string, Record<string, string>> = {
 export default function Home() {
   const [language, setLanguage] = useState('ja');
   const [activeTab, setActiveTab] = useState<TabType>('earthquake');
-  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [earthquakeView, setEarthquakeView] = useState<EarthquakeViewType>('list');
+  const [mounted, setMounted] = useState(false);
   const [earthquakes, setEarthquakes] = useState<Earthquake[]>([]);
   const [earthquakeLoading, setEarthquakeLoading] = useState(true);
   const [earthquakeError, setEarthquakeError] = useState<ApiError | null>(null);
@@ -487,6 +528,10 @@ export default function Home() {
   }, [fetchEarthquakes, lastUpdate]);
 
   useEffect(() => {
+    // クライアントサイドでのみ実行
+    setMounted(true);
+    setLastUpdate(new Date());
+
     // 30秒ごとにデータを更新
     const interval = setInterval(() => {
       setLastUpdate(new Date());
@@ -517,7 +562,7 @@ export default function Home() {
       {/* タブナビゲーション（アイコン付き・アクセシビリティ強化） */}
       <nav className="bg-white border-b sticky top-[72px] z-30 shadow-sm" aria-label={language === 'ja' ? 'メインナビゲーション' : 'Main navigation'}>
         <div className="max-w-4xl mx-auto flex" role="tablist" aria-label={language === 'ja' ? '情報カテゴリ' : 'Information categories'}>
-          {(['earthquake', 'weather', 'shelter', 'checklist'] as TabType[]).map((tab) => (
+          {(['earthquake', 'warning', 'volcano', 'shelter', 'checklist'] as TabType[]).map((tab) => (
             <button
               key={tab}
               id={`tab-${tab}`}
@@ -542,9 +587,11 @@ export default function Home() {
       {/* メインコンテンツ */}
       <div className="max-w-4xl mx-auto p-4">
         {/* 最終更新時刻 */}
-        <div className="text-right text-sm text-gray-500 mb-4 flex items-center justify-end gap-2">
+        <div className="text-right text-sm text-gray-500 mb-4 flex items-center justify-end gap-2" suppressHydrationWarning>
           <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-          {t('lastUpdate')}: {lastUpdate.toLocaleTimeString(language === 'ja' ? 'ja-JP' : 'en-US')}
+          <span suppressHydrationWarning>
+            {t('lastUpdate')}: {mounted && lastUpdate ? lastUpdate.toLocaleTimeString(language === 'ja' ? 'ja-JP' : 'en-US') : '--:--:--'}
+          </span>
         </div>
 
         {/* タブコンテンツ（アクセシビリティ強化） */}
@@ -625,9 +672,15 @@ export default function Home() {
             </div>
           )}
 
-          {activeTab === 'weather' && (
-            <div id="tabpanel-weather" role="tabpanel" aria-labelledby="tab-weather" tabIndex={0}>
-              <WeatherInfo language={language} />
+          {activeTab === 'warning' && (
+            <div id="tabpanel-warning" role="tabpanel" aria-labelledby="tab-warning" tabIndex={0}>
+              <WarningBanner language={language} />
+            </div>
+          )}
+
+          {activeTab === 'volcano' && (
+            <div id="tabpanel-volcano" role="tabpanel" aria-labelledby="tab-volcano" tabIndex={0}>
+              <VolcanoAlert language={language} />
             </div>
           )}
 
