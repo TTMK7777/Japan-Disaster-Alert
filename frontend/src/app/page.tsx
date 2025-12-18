@@ -443,7 +443,7 @@ export default function Home() {
   const [language, setLanguage] = useState('ja');
   const [activeTab, setActiveTab] = useState<TabType>('earthquake');
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
-  const [earthquakeView, setEarthquakeView] = useState<EarthquakeViewType>('map');
+  const [earthquakeView, setEarthquakeView] = useState<EarthquakeViewType>('list');
   const [mounted, setMounted] = useState(false);
   const [earthquakes, setEarthquakes] = useState<Earthquake[]>([]);
   const [earthquakeLoading, setEarthquakeLoading] = useState(true);
@@ -492,6 +492,8 @@ export default function Home() {
     // クライアントサイドでのみ実行
     setMounted(true);
     setLastUpdate(new Date());
+    // マウント後に地図表示をデフォルトに
+    setEarthquakeView('map');
 
     // 30秒ごとにデータを更新
     const interval = setInterval(() => {
