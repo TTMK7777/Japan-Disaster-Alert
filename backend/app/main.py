@@ -8,6 +8,7 @@ import httpx
 from datetime import datetime
 from typing import Optional
 import asyncio
+import os
 
 from .models import (
     EarthquakeInfo,
@@ -55,10 +56,17 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS設定
+# CORS設定（環境変数で制御）
+# 本番環境では環境変数 ALLOWED_ORIGINS で許可オリジンを指定すること
+# 例: ALLOWED_ORIGINS=http://localhost:3000,https://example.com
+ALLOWED_ORIGINS = os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:3000,http://localhost:8000"  # 開発環境のデフォルト
+).split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 本番環境では制限すること
+    allow_origins=ALLOWED_ORIGINS,  # 環境変数で制限
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
