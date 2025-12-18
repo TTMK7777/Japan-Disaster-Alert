@@ -4,12 +4,18 @@
 import httpx
 from typing import Optional
 from ..models import VolcanoInfo, VolcanoWarning
+from ..utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class VolcanoService:
     """気象庁の火山情報を取得するサービス"""
 
-    BASE_URL = "https://www.jma.go.jp/bosai/volcano"
+    def __init__(self):
+        from ..config import settings
+        self.BASE_URL = f"{settings.jma_base_url}/volcano"
+        self.timeout = settings.api_timeout
 
     # 噴火警戒レベルの説明
     ALERT_LEVELS = {
@@ -55,12 +61,12 @@ class VolcanoService:
 
         async with httpx.AsyncClient() as client:
             try:
-                response = await client.get(url, timeout=10.0)
+                response = await client.get(url, timeout=self.timeout)
                 response.raise_for_status()
                 data = response.json()
                 return self._parse_volcano_list(data)
             except httpx.HTTPError as e:
-                print(f"火山一覧取得エラー: {e}")
+                logger.error(f"火山一覧取得エラー: {e}", exc_info=True)
                 return []
 
     def _parse_volcano_list(self, data: list) -> list[VolcanoInfo]:
@@ -84,7 +90,7 @@ class VolcanoService:
                 )
                 volcanoes.append(volcano)
             except Exception as e:
-                print(f"火山情報パースエラー: {e}")
+                logger.error(f"火山情報パースエラー: {e}", exc_info=True)
                 continue
 
         return volcanoes
@@ -113,7 +119,7 @@ class VolcanoService:
             for volcano_code in self.MONITORED_VOLCANOES:
                 try:
                     url = f"{self.BASE_URL}/data/warning/{volcano_code}.json"
-                    response = await client.get(url, timeout=10.0)
+                    response = await client.get(url, timeout=self.timeout)
                     if response.status_code == 200:
                         data = response.json()
                         if data:
@@ -123,7 +129,7 @@ class VolcanoService:
                 except httpx.HTTPError:
                     continue
                 except Exception as e:
-                    print(f"火山警報取得エラー ({volcano_code}): {e}")
+                    logger.warning(f"火山警報取得エラー ({volcano_code}): {e}")
                     continue
 
         return warnings
@@ -148,7 +154,7 @@ class VolcanoService:
                 "headline": data.get("headlineText", ""),
             }
         except Exception as e:
-            print(f"火山警報パースエラー: {e}")
+            logger.error(f"火山警報パースエラー: {e}", exc_info=True)
             return None
 
     async def get_volcano_by_code(self, code: int) -> Optional[VolcanoInfo]:

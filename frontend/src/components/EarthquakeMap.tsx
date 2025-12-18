@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -136,11 +136,14 @@ const mapTranslations: Record<string, Record<string, string>> = {
 function MapFitter({ earthquakes }: { earthquakes: Earthquake[] }) {
   const map = useMap();
 
-  useMemo(() => {
+  useEffect(() => {
     const validEqs = earthquakes.filter(eq => eq.latitude && eq.longitude);
     if (validEqs.length > 0) {
       const bounds = L.latLngBounds(validEqs.map(eq => [eq.latitude, eq.longitude]));
       map.fitBounds(bounds, { padding: [50, 50], maxZoom: 10 });
+    } else {
+      // データがない場合は日本を表示
+      map.setView([36.5, 138.0], 5);
     }
   }, [earthquakes, map]);
 
@@ -155,9 +158,14 @@ export default function EarthquakeMap({ earthquakes, language }: EarthquakeMapPr
   const defaultCenter: [number, number] = [36.5, 138.0];
   const defaultZoom = 5;
 
-  // 有効な座標を持つ地震のみフィルタリング
+  // 有効な座標を持つ地震のみフィルタリング（日本周辺の座標範囲でチェック）
   const validEarthquakes = useMemo(
-    () => earthquakes.filter(eq => eq.latitude && eq.longitude && !isNaN(eq.latitude) && !isNaN(eq.longitude)),
+    () => earthquakes.filter(eq =>
+      eq.latitude && eq.longitude &&
+      !isNaN(eq.latitude) && !isNaN(eq.longitude) &&
+      eq.latitude >= 20 && eq.latitude <= 50 &&  // 日本の緯度範囲
+      eq.longitude >= 120 && eq.longitude <= 155  // 日本の経度範囲
+    ),
     [earthquakes]
   );
 

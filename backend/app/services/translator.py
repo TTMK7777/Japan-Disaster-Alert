@@ -13,6 +13,9 @@ import hashlib
 from pathlib import Path
 
 from .location_translations import get_location_translation, LOCATION_TRANSLATIONS
+from ..utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class TranslatorService:
@@ -240,9 +243,14 @@ class TranslatorService:
 
     def __init__(self):
         """初期化"""
-        self.anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
+        from ..config import settings
+        
+        self.anthropic_api_key = settings.anthropic_api_key
+        self.anthropic_api_version = settings.anthropic_api_version
+        self.anthropic_model = settings.anthropic_model
+        self.timeout = settings.api_timeout
         self._cache: dict[str, str] = {}
-        self._cache_file = Path(__file__).parent.parent.parent / "data" / "translation_cache.json"
+        self._cache_file = settings.translation_cache_file
         self._load_cache()
 
     def _load_cache(self):
@@ -252,7 +260,7 @@ class TranslatorService:
                 with open(self._cache_file, "r", encoding="utf-8") as f:
                     self._cache = json.load(f)
         except Exception as e:
-            print(f"キャッシュ読み込みエラー: {e}")
+            logger.error(f"キャッシュ読み込みエラー: {e}", exc_info=True)
             self._cache = {}
 
     def _save_cache(self):
@@ -262,7 +270,7 @@ class TranslatorService:
             with open(self._cache_file, "w", encoding="utf-8") as f:
                 json.dump(self._cache, f, ensure_ascii=False, indent=2)
         except Exception as e:
-            print(f"キャッシュ保存エラー: {e}")
+            logger.error(f"キャッシュ保存エラー: {e}", exc_info=True)
 
     def _get_cache_key(self, text: str, target_lang: str) -> str:
         """キャッシュキーを生成"""
@@ -302,7 +310,7 @@ class TranslatorService:
                     self._save_cache()
                     return translated
             except Exception as e:
-                print(f"Claude API翻訳エラー: {e}")
+                logger.error(f"Claude API翻訳エラー: {e}", exc_info=True)
 
         # 4. フォールバック: 元のテキストを返す
         return location
@@ -347,28 +355,28 @@ class TranslatorService:
                     headers={
                         "Content-Type": "application/json",
                         "X-API-Key": self.anthropic_api_key,
-                        "anthropic-version": "2023-06-01"
+                        "anthropic-version": self.anthropic_api_version
                     },
                     json={
-                        "model": "claude-3-haiku-20240307",
+                        "model": self.anthropic_model,
                         "max_tokens": 100,
                         "messages": [{
                             "role": "user",
                             "content": f"Translate this Japanese earthquake location name to {target_name}. Only output the translation, nothing else.\n\n{text}"
                         }]
                     },
-                    timeout=10.0
+                    timeout=self.timeout
                 )
 
                 if response.status_code == 200:
                     data = response.json()
                     return data["content"][0]["text"].strip()
                 else:
-                    print(f"Claude API error: {response.status_code}")
+                    logger.warning(f"Claude API error: {response.status_code}")
                     return None
 
         except Exception as e:
-            print(f"Claude API request error: {e}")
+            logger.error(f"Claude API request error: {e}", exc_info=True)
             return None
 
     def translate_tsunami_warning(self, warning: str, target_lang: str) -> str:
@@ -428,7 +436,7 @@ class TranslatorService:
                     self._save_cache()
                     return translated
             except Exception as e:
-                print(f"翻訳エラー: {e}")
+                logger.error(f"翻訳エラー: {e}", exc_info=True)
 
         # フォールバック
         return text

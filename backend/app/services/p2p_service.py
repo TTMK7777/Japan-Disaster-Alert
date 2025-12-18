@@ -4,12 +4,18 @@ P2P地震情報API連携サービス
 import httpx
 from typing import Optional
 from ..models import EarthquakeInfo
+from ..utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class P2PQuakeService:
     """P2P地震情報サービス"""
 
-    BASE_URL = "https://api.p2pquake.net/v2"
+    def __init__(self):
+        from ..config import settings
+        self.BASE_URL = settings.p2p_base_url
+        self.timeout = settings.api_timeout
 
     # 震度変換マッピング
     INTENSITY_MAP = {
@@ -39,10 +45,13 @@ class P2PQuakeService:
         最新の地震情報を取得
 
         Args:
-            limit: 取得件数
+            limit: 取得件数（デフォルト: 10）
 
         Returns:
-            list[EarthquakeInfo]: 地震情報リスト
+            list[EarthquakeInfo]: 地震情報リスト。取得に失敗した場合は空リストを返す。
+
+        Raises:
+            httpx.HTTPError: APIリクエストに失敗した場合（内部でキャッチされ、空リストを返す）
         """
         url = f"{self.BASE_URL}/history"
         params = {
@@ -52,7 +61,7 @@ class P2PQuakeService:
 
         async with httpx.AsyncClient() as client:
             try:
-                response = await client.get(url, params=params, timeout=10.0)
+                response = await client.get(url, params=params, timeout=self.timeout)
                 response.raise_for_status()
                 data = response.json()
 
@@ -64,7 +73,7 @@ class P2PQuakeService:
 
                 return earthquakes
             except httpx.HTTPError as e:
-                print(f"P2P地震情報取得エラー: {e}")
+                logger.error(f"P2P地震情報取得エラー: {e}", exc_info=True)
                 return []
 
     def _parse_earthquake(self, data: dict) -> Optional[EarthquakeInfo]:
@@ -116,7 +125,7 @@ class P2PQuakeService:
                 source="気象庁"
             )
         except Exception as e:
-            print(f"地震データパースエラー: {e}")
+            logger.error(f"地震データパースエラー: {e}", exc_info=True)
             return None
 
     def _generate_message(
@@ -169,9 +178,9 @@ class P2PQuakeService:
 
         async with httpx.AsyncClient() as client:
             try:
-                response = await client.get(url, params=params, timeout=10.0)
+                response = await client.get(url, params=params, timeout=self.timeout)
                 response.raise_for_status()
                 return response.json()
             except httpx.HTTPError as e:
-                print(f"体感報告取得エラー: {e}")
+                logger.error(f"体感報告取得エラー: {e}", exc_info=True)
                 return []

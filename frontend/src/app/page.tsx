@@ -4,10 +4,9 @@ import { useState, useEffect, useCallback, useMemo, Component, ReactNode } from 
 import dynamic from 'next/dynamic';
 import LanguageSelector from '@/components/LanguageSelector';
 import EarthquakeList from '@/components/EarthquakeList';
-import WeatherInfo from '@/components/WeatherInfo';
 import EmergencyAlert from '@/components/EmergencyAlert';
 import WarningBanner from '@/components/WarningBanner';
-import VolcanoAlert from '@/components/VolcanoAlert';
+import EmergencyContacts from '@/components/EmergencyContacts';
 import { EarthquakeIcon, ShelterIcon } from '@/components/icons/DisasterIcons';
 
 // Error Boundary コンポーネント
@@ -88,10 +87,8 @@ const translations: Record<string, Record<string, string>> = {
     subtitle: '多言語災害情報システム',
     earthquake: '地震',
     warning: '警報',
-    weather: '天気',
-    volcano: '火山',
+    emergency: '緊急連絡',
     shelter: '避難所',
-    checklist: '防災',
     settings: '設定',
     loading: '読み込み中...',
     noData: 'データがありません',
@@ -107,10 +104,8 @@ const translations: Record<string, Record<string, string>> = {
     subtitle: 'Multilingual Disaster Info',
     earthquake: 'Quakes',
     warning: 'Alerts',
-    weather: 'Weather',
-    volcano: 'Volcano',
+    emergency: 'SOS',
     shelter: 'Shelters',
-    checklist: 'Kit',
     settings: 'Settings',
     loading: 'Loading...',
     noData: 'No data available',
@@ -126,10 +121,8 @@ const translations: Record<string, Record<string, string>> = {
     subtitle: '多语言灾害信息系统',
     earthquake: '地震信息',
     warning: '警报',
-    weather: '天气信息',
-    volcano: '火山',
+    emergency: '紧急电话',
     shelter: '避难所',
-    checklist: '防灾清单',
     settings: '设置',
     loading: '加载中...',
     noData: '暂无数据',
@@ -145,10 +138,8 @@ const translations: Record<string, Record<string, string>> = {
     subtitle: '多語言災害資訊系統',
     earthquake: '地震資訊',
     warning: '警報',
-    weather: '天氣資訊',
-    volcano: '火山',
+    emergency: '緊急電話',
     shelter: '避難所',
-    checklist: '防災清單',
     settings: '設定',
     loading: '載入中...',
     noData: '暫無資料',
@@ -164,10 +155,8 @@ const translations: Record<string, Record<string, string>> = {
     subtitle: '다국어 재난 정보 시스템',
     earthquake: '지진 정보',
     warning: '경보',
-    weather: '날씨 정보',
-    volcano: '화산',
+    emergency: '긴급전화',
     shelter: '대피소',
-    checklist: '방재 체크리스트',
     settings: '설정',
     loading: '로딩 중...',
     noData: '데이터가 없습니다',
@@ -183,10 +172,8 @@ const translations: Record<string, Record<string, string>> = {
     subtitle: 'Hệ thống thông tin đa ngôn ngữ',
     earthquake: 'Động đất',
     warning: 'Cảnh báo',
-    weather: 'Thời tiết',
-    volcano: 'Núi lửa',
+    emergency: 'Khẩn cấp',
     shelter: 'Nơi trú ẩn',
-    checklist: 'Danh sách',
     settings: 'Cài đặt',
     loading: 'Đang tải...',
     noData: 'Không có dữ liệu',
@@ -202,10 +189,8 @@ const translations: Record<string, Record<string, string>> = {
     subtitle: 'ระบบข้อมูลภัยพิบัติหลายภาษา',
     earthquake: 'แผ่นดินไหว',
     warning: 'คำเตือน',
-    weather: 'สภาพอากาศ',
-    volcano: 'ภูเขาไฟ',
+    emergency: 'ฉุกเฉิน',
     shelter: 'ที่พักพิง',
-    checklist: 'รายการ',
     settings: 'ตั้งค่า',
     loading: 'กำลังโหลด...',
     noData: 'ไม่มีข้อมูล',
@@ -221,10 +206,8 @@ const translations: Record<string, Record<string, string>> = {
     subtitle: 'Sistem Info Bencana Multibahasa',
     earthquake: 'Gempa',
     warning: 'Peringatan',
-    weather: 'Cuaca',
-    volcano: 'Gunung Api',
+    emergency: 'Darurat',
     shelter: 'Tempat Pengungsian',
-    checklist: 'Daftar',
     settings: 'Pengaturan',
     loading: 'Memuat...',
     noData: 'Tidak ada data',
@@ -240,10 +223,8 @@ const translations: Record<string, Record<string, string>> = {
     subtitle: 'Sistem Maklumat Berbilang Bahasa',
     earthquake: 'Gempa Bumi',
     warning: 'Amaran',
-    weather: 'Cuaca',
-    volcano: 'Gunung Berapi',
+    emergency: 'Kecemasan',
     shelter: 'Tempat Perlindungan',
-    checklist: 'Senarai',
     settings: 'Tetapan',
     loading: 'Memuatkan...',
     noData: 'Tiada data',
@@ -259,10 +240,8 @@ const translations: Record<string, Record<string, string>> = {
     subtitle: 'Multi-Language na Impormasyon',
     earthquake: 'Lindol',
     warning: 'Babala',
-    weather: 'Panahon',
-    volcano: 'Bulkan',
+    emergency: 'Emergency',
     shelter: 'Evacuation Center',
-    checklist: 'Listahan',
     settings: 'Mga Setting',
     loading: 'Naglo-load...',
     noData: 'Walang data',
@@ -278,10 +257,8 @@ const translations: Record<string, Record<string, string>> = {
     subtitle: 'बहुभाषिक विपद् सूचना',
     earthquake: 'भूकम्प',
     warning: 'चेतावनी',
-    weather: 'मौसम',
-    volcano: 'ज्वालामुखी',
+    emergency: 'आपातकालीन',
     shelter: 'आश्रय',
-    checklist: 'सूची',
     settings: 'सेटिङ',
     loading: 'लोड हुँदैछ...',
     noData: 'डाटा छैन',
@@ -297,10 +274,8 @@ const translations: Record<string, Record<string, string>> = {
     subtitle: 'Système multilingue',
     earthquake: 'Séismes',
     warning: 'Alertes',
-    weather: 'Météo',
-    volcano: 'Volcan',
+    emergency: 'Urgence',
     shelter: 'Abris',
-    checklist: 'Liste',
     settings: 'Paramètres',
     loading: 'Chargement...',
     noData: 'Pas de données',
@@ -316,10 +291,8 @@ const translations: Record<string, Record<string, string>> = {
     subtitle: 'Mehrsprachiges System',
     earthquake: 'Erdbeben',
     warning: 'Warnungen',
-    weather: 'Wetter',
-    volcano: 'Vulkan',
+    emergency: 'Notfall',
     shelter: 'Notunterkünfte',
-    checklist: 'Checkliste',
     settings: 'Einstellungen',
     loading: 'Laden...',
     noData: 'Keine Daten',
@@ -335,10 +308,8 @@ const translations: Record<string, Record<string, string>> = {
     subtitle: 'Sistema multilingue',
     earthquake: 'Terremoti',
     warning: 'Allerte',
-    weather: 'Meteo',
-    volcano: 'Vulcano',
+    emergency: 'Emergenza',
     shelter: 'Rifugi',
-    checklist: 'Lista',
     settings: 'Impostazioni',
     loading: 'Caricamento...',
     noData: 'Nessun dato',
@@ -354,10 +325,8 @@ const translations: Record<string, Record<string, string>> = {
     subtitle: 'Sistema multilingüe',
     earthquake: 'Terremotos',
     warning: 'Alertas',
-    weather: 'Clima',
-    volcano: 'Volcán',
+    emergency: 'Emergencia',
     shelter: 'Refugios',
-    checklist: 'Lista',
     settings: 'Configuración',
     loading: 'Cargando...',
     noData: 'Sin datos',
@@ -373,10 +342,8 @@ const translations: Record<string, Record<string, string>> = {
     subtitle: 'やさしい にほんご',
     earthquake: 'じしん',
     warning: 'けいほう',
-    weather: 'てんき',
-    volcano: 'かざん',
+    emergency: 'きんきゅう',
     shelter: 'ひなんじょ',
-    checklist: 'もちもの',
     settings: 'せってい',
     loading: 'よみこみちゅう...',
     noData: 'データが ありません',
@@ -410,7 +377,7 @@ interface Earthquake {
 // バックエンドAPIのベースURL
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-type TabType = 'earthquake' | 'warning' | 'volcano' | 'shelter' | 'checklist';
+type TabType = 'earthquake' | 'warning' | 'emergency' | 'shelter';
 type EarthquakeViewType = 'list' | 'map';
 
 // タブアイコンコンポーネント
@@ -427,20 +394,14 @@ function TabIcon({ tab, active }: { tab: TabType; active: boolean }) {
           <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" />
         </svg>
       );
-    case 'volcano':
+    case 'emergency':
       return (
         <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
-          <path d="M12 2L8 8h2v4H8l-6 10h20l-6-10h-2V8h2L12 2zm0 4.5L13.5 9h-3L12 6.5z" />
+          <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" />
         </svg>
       );
     case 'shelter':
       return <ShelterIcon size={size} className={active ? '' : 'opacity-60'} />;
-    case 'checklist':
-      return (
-        <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
-          <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-        </svg>
-      );
   }
 }
 
@@ -482,7 +443,7 @@ export default function Home() {
   const [language, setLanguage] = useState('ja');
   const [activeTab, setActiveTab] = useState<TabType>('earthquake');
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
-  const [earthquakeView, setEarthquakeView] = useState<EarthquakeViewType>('list');
+  const [earthquakeView, setEarthquakeView] = useState<EarthquakeViewType>('map');
   const [mounted, setMounted] = useState(false);
   const [earthquakes, setEarthquakes] = useState<Earthquake[]>([]);
   const [earthquakeLoading, setEarthquakeLoading] = useState(true);
@@ -562,7 +523,7 @@ export default function Home() {
       {/* タブナビゲーション（アイコン付き・アクセシビリティ強化） */}
       <nav className="bg-white border-b sticky top-[72px] z-30 shadow-sm" aria-label={language === 'ja' ? 'メインナビゲーション' : 'Main navigation'}>
         <div className="max-w-4xl mx-auto flex" role="tablist" aria-label={language === 'ja' ? '情報カテゴリ' : 'Information categories'}>
-          {(['earthquake', 'warning', 'volcano', 'shelter', 'checklist'] as TabType[]).map((tab) => (
+          {(['earthquake', 'warning', 'emergency', 'shelter'] as TabType[]).map((tab) => (
             <button
               key={tab}
               id={`tab-${tab}`}
@@ -678,21 +639,15 @@ export default function Home() {
             </div>
           )}
 
-          {activeTab === 'volcano' && (
-            <div id="tabpanel-volcano" role="tabpanel" aria-labelledby="tab-volcano" tabIndex={0}>
-              <VolcanoAlert language={language} />
+          {activeTab === 'emergency' && (
+            <div id="tabpanel-emergency" role="tabpanel" aria-labelledby="tab-emergency" tabIndex={0}>
+              <EmergencyContacts language={language} />
             </div>
           )}
 
           {activeTab === 'shelter' && (
             <div id="tabpanel-shelter" role="tabpanel" aria-labelledby="tab-shelter" tabIndex={0}>
               <ShelterMap language={language} />
-            </div>
-          )}
-
-          {activeTab === 'checklist' && (
-            <div id="tabpanel-checklist" role="tabpanel" aria-labelledby="tab-checklist" tabIndex={0}>
-              <ChecklistSection language={language} />
             </div>
           )}
         </ErrorBoundary>
@@ -709,564 +664,3 @@ export default function Home() {
   );
 }
 
-// 防災チェックリストコンポーネント（16言語対応版）
-function ChecklistSection({ language }: { language: string }) {
-  const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
-
-  // 16言語対応チェックリストデータ
-  const checklistItems: Record<string, { category: string; items: { id: string; name: string; priority: 'high' | 'medium' | 'low' }[] }[]> = {
-    ja: [
-      { category: '🚰 水・食料', items: [
-        { id: 'water', name: '飲料水（1人3L×3日分）', priority: 'high' },
-        { id: 'food', name: '非常食（3日分）', priority: 'high' },
-        { id: 'can', name: '缶詰・レトルト食品', priority: 'medium' },
-      ]},
-      { category: '🚽 衛生用品', items: [
-        { id: 'toilet', name: '非常用トイレ（最重要！）', priority: 'high' },
-        { id: 'wipes', name: 'ウェットティッシュ', priority: 'medium' },
-        { id: 'sanitary', name: '生理用品', priority: 'medium' },
-        { id: 'mask', name: 'マスク', priority: 'medium' },
-      ]},
-      { category: '🔦 情報・照明', items: [
-        { id: 'battery', name: 'モバイルバッテリー（大容量）', priority: 'high' },
-        { id: 'flashlight', name: '懐中電灯', priority: 'high' },
-        { id: 'radio', name: '携帯ラジオ', priority: 'medium' },
-      ]},
-      { category: '💰 貴重品', items: [
-        { id: 'cash', name: '現金（小銭も）', priority: 'high' },
-        { id: 'id', name: '身分証明書のコピー', priority: 'medium' },
-        { id: 'insurance', name: '保険証のコピー', priority: 'medium' },
-      ]},
-      { category: '🎒 その他', items: [
-        { id: 'firstaid', name: '救急セット', priority: 'medium' },
-        { id: 'medicine', name: '常備薬', priority: 'high' },
-        { id: 'tarp', name: 'ブルーシート', priority: 'low' },
-        { id: 'gloves', name: '軍手', priority: 'low' },
-      ]},
-    ],
-    en: [
-      { category: '🚰 Water & Food', items: [
-        { id: 'water', name: 'Drinking water (3L×3 days/person)', priority: 'high' },
-        { id: 'food', name: 'Emergency food (3 days)', priority: 'high' },
-        { id: 'can', name: 'Canned/retort food', priority: 'medium' },
-      ]},
-      { category: '🚽 Hygiene', items: [
-        { id: 'toilet', name: 'Emergency toilet (Most important!)', priority: 'high' },
-        { id: 'wipes', name: 'Wet wipes', priority: 'medium' },
-        { id: 'sanitary', name: 'Sanitary products', priority: 'medium' },
-        { id: 'mask', name: 'Masks', priority: 'medium' },
-      ]},
-      { category: '🔦 Info & Light', items: [
-        { id: 'battery', name: 'Power bank (large capacity)', priority: 'high' },
-        { id: 'flashlight', name: 'Flashlight', priority: 'high' },
-        { id: 'radio', name: 'Portable radio', priority: 'medium' },
-      ]},
-      { category: '💰 Valuables', items: [
-        { id: 'cash', name: 'Cash (coins too)', priority: 'high' },
-        { id: 'id', name: 'ID copy', priority: 'medium' },
-        { id: 'insurance', name: 'Insurance card copy', priority: 'medium' },
-      ]},
-      { category: '🎒 Others', items: [
-        { id: 'firstaid', name: 'First aid kit', priority: 'medium' },
-        { id: 'medicine', name: 'Regular medicine', priority: 'high' },
-        { id: 'tarp', name: 'Blue tarp', priority: 'low' },
-        { id: 'gloves', name: 'Work gloves', priority: 'low' },
-      ]},
-    ],
-    zh: [
-      { category: '🚰 饮水与食物', items: [
-        { id: 'water', name: '饮用水（每人3L×3天）', priority: 'high' },
-        { id: 'food', name: '应急食品（3天量）', priority: 'high' },
-        { id: 'can', name: '罐头/方便食品', priority: 'medium' },
-      ]},
-      { category: '🚽 卫生用品', items: [
-        { id: 'toilet', name: '应急厕所（最重要！）', priority: 'high' },
-        { id: 'wipes', name: '湿纸巾', priority: 'medium' },
-        { id: 'sanitary', name: '卫生用品', priority: 'medium' },
-        { id: 'mask', name: '口罩', priority: 'medium' },
-      ]},
-      { category: '🔦 信息与照明', items: [
-        { id: 'battery', name: '充电宝（大容量）', priority: 'high' },
-        { id: 'flashlight', name: '手电筒', priority: 'high' },
-        { id: 'radio', name: '便携收音机', priority: 'medium' },
-      ]},
-      { category: '💰 贵重物品', items: [
-        { id: 'cash', name: '现金（含硬币）', priority: 'high' },
-        { id: 'id', name: '身份证复印件', priority: 'medium' },
-        { id: 'insurance', name: '保险卡复印件', priority: 'medium' },
-      ]},
-      { category: '🎒 其他', items: [
-        { id: 'firstaid', name: '急救包', priority: 'medium' },
-        { id: 'medicine', name: '常用药', priority: 'high' },
-        { id: 'tarp', name: '防水布', priority: 'low' },
-        { id: 'gloves', name: '工作手套', priority: 'low' },
-      ]},
-    ],
-    'zh-TW': [
-      { category: '🚰 飲水與食物', items: [
-        { id: 'water', name: '飲用水（每人3L×3天）', priority: 'high' },
-        { id: 'food', name: '應急食品（3天量）', priority: 'high' },
-        { id: 'can', name: '罐頭/即食食品', priority: 'medium' },
-      ]},
-      { category: '🚽 衛生用品', items: [
-        { id: 'toilet', name: '應急廁所（最重要！）', priority: 'high' },
-        { id: 'wipes', name: '濕紙巾', priority: 'medium' },
-        { id: 'sanitary', name: '衛生用品', priority: 'medium' },
-        { id: 'mask', name: '口罩', priority: 'medium' },
-      ]},
-      { category: '🔦 資訊與照明', items: [
-        { id: 'battery', name: '行動電源（大容量）', priority: 'high' },
-        { id: 'flashlight', name: '手電筒', priority: 'high' },
-        { id: 'radio', name: '便攜收音機', priority: 'medium' },
-      ]},
-      { category: '💰 貴重物品', items: [
-        { id: 'cash', name: '現金（含硬幣）', priority: 'high' },
-        { id: 'id', name: '身份證影本', priority: 'medium' },
-        { id: 'insurance', name: '健保卡影本', priority: 'medium' },
-      ]},
-      { category: '🎒 其他', items: [
-        { id: 'firstaid', name: '急救包', priority: 'medium' },
-        { id: 'medicine', name: '常用藥', priority: 'high' },
-        { id: 'tarp', name: '防水布', priority: 'low' },
-        { id: 'gloves', name: '工作手套', priority: 'low' },
-      ]},
-    ],
-    ko: [
-      { category: '🚰 물과 식량', items: [
-        { id: 'water', name: '음료수 (1인 3L×3일분)', priority: 'high' },
-        { id: 'food', name: '비상식량 (3일분)', priority: 'high' },
-        { id: 'can', name: '통조림/레토르트 식품', priority: 'medium' },
-      ]},
-      { category: '🚽 위생용품', items: [
-        { id: 'toilet', name: '비상용 화장실 (가장 중요!)', priority: 'high' },
-        { id: 'wipes', name: '물티슈', priority: 'medium' },
-        { id: 'sanitary', name: '위생용품', priority: 'medium' },
-        { id: 'mask', name: '마스크', priority: 'medium' },
-      ]},
-      { category: '🔦 정보 및 조명', items: [
-        { id: 'battery', name: '보조배터리 (대용량)', priority: 'high' },
-        { id: 'flashlight', name: '손전등', priority: 'high' },
-        { id: 'radio', name: '휴대용 라디오', priority: 'medium' },
-      ]},
-      { category: '💰 귀중품', items: [
-        { id: 'cash', name: '현금 (동전 포함)', priority: 'high' },
-        { id: 'id', name: '신분증 사본', priority: 'medium' },
-        { id: 'insurance', name: '보험증 사본', priority: 'medium' },
-      ]},
-      { category: '🎒 기타', items: [
-        { id: 'firstaid', name: '구급상자', priority: 'medium' },
-        { id: 'medicine', name: '상비약', priority: 'high' },
-        { id: 'tarp', name: '방수포', priority: 'low' },
-        { id: 'gloves', name: '작업 장갑', priority: 'low' },
-      ]},
-    ],
-    vi: [
-      { category: '🚰 Nước & Thực phẩm', items: [
-        { id: 'water', name: 'Nước uống (3L×3 ngày/người)', priority: 'high' },
-        { id: 'food', name: 'Thực phẩm khẩn cấp (3 ngày)', priority: 'high' },
-        { id: 'can', name: 'Đồ hộp/Thực phẩm ăn liền', priority: 'medium' },
-      ]},
-      { category: '🚽 Vệ sinh', items: [
-        { id: 'toilet', name: 'Toilet khẩn cấp (Quan trọng nhất!)', priority: 'high' },
-        { id: 'wipes', name: 'Khăn ướt', priority: 'medium' },
-        { id: 'sanitary', name: 'Đồ vệ sinh', priority: 'medium' },
-        { id: 'mask', name: 'Khẩu trang', priority: 'medium' },
-      ]},
-      { category: '🔦 Thông tin & Ánh sáng', items: [
-        { id: 'battery', name: 'Pin dự phòng (dung lượng lớn)', priority: 'high' },
-        { id: 'flashlight', name: 'Đèn pin', priority: 'high' },
-        { id: 'radio', name: 'Radio di động', priority: 'medium' },
-      ]},
-      { category: '💰 Vật có giá trị', items: [
-        { id: 'cash', name: 'Tiền mặt (cả tiền xu)', priority: 'high' },
-        { id: 'id', name: 'Bản sao CMND', priority: 'medium' },
-        { id: 'insurance', name: 'Bản sao thẻ bảo hiểm', priority: 'medium' },
-      ]},
-      { category: '🎒 Khác', items: [
-        { id: 'firstaid', name: 'Bộ sơ cứu', priority: 'medium' },
-        { id: 'medicine', name: 'Thuốc thường dùng', priority: 'high' },
-        { id: 'tarp', name: 'Bạt chống nước', priority: 'low' },
-        { id: 'gloves', name: 'Găng tay lao động', priority: 'low' },
-      ]},
-    ],
-    th: [
-      { category: '🚰 น้ำและอาหาร', items: [
-        { id: 'water', name: 'น้ำดื่ม (3L×3วัน/คน)', priority: 'high' },
-        { id: 'food', name: 'อาหารฉุกเฉิน (3 วัน)', priority: 'high' },
-        { id: 'can', name: 'อาหารกระป๋อง/สำเร็จรูป', priority: 'medium' },
-      ]},
-      { category: '🚽 สุขอนามัย', items: [
-        { id: 'toilet', name: 'ห้องน้ำฉุกเฉิน (สำคัญที่สุด!)', priority: 'high' },
-        { id: 'wipes', name: 'ทิชชู่เปียก', priority: 'medium' },
-        { id: 'sanitary', name: 'ผ้าอนามัย', priority: 'medium' },
-        { id: 'mask', name: 'หน้ากากอนามัย', priority: 'medium' },
-      ]},
-      { category: '🔦 ข้อมูลและแสงสว่าง', items: [
-        { id: 'battery', name: 'พาวเวอร์แบงค์ (ความจุสูง)', priority: 'high' },
-        { id: 'flashlight', name: 'ไฟฉาย', priority: 'high' },
-        { id: 'radio', name: 'วิทยุพกพา', priority: 'medium' },
-      ]},
-      { category: '💰 ของมีค่า', items: [
-        { id: 'cash', name: 'เงินสด (รวมเหรียญ)', priority: 'high' },
-        { id: 'id', name: 'สำเนาบัตรประชาชน', priority: 'medium' },
-        { id: 'insurance', name: 'สำเนาบัตรประกัน', priority: 'medium' },
-      ]},
-      { category: '🎒 อื่นๆ', items: [
-        { id: 'firstaid', name: 'ชุดปฐมพยาบาล', priority: 'medium' },
-        { id: 'medicine', name: 'ยาประจำตัว', priority: 'high' },
-        { id: 'tarp', name: 'ผ้าใบกันน้ำ', priority: 'low' },
-        { id: 'gloves', name: 'ถุงมือ', priority: 'low' },
-      ]},
-    ],
-    id: [
-      { category: '🚰 Air & Makanan', items: [
-        { id: 'water', name: 'Air minum (3L×3 hari/orang)', priority: 'high' },
-        { id: 'food', name: 'Makanan darurat (3 hari)', priority: 'high' },
-        { id: 'can', name: 'Makanan kaleng/instan', priority: 'medium' },
-      ]},
-      { category: '🚽 Kebersihan', items: [
-        { id: 'toilet', name: 'Toilet darurat (Paling penting!)', priority: 'high' },
-        { id: 'wipes', name: 'Tisu basah', priority: 'medium' },
-        { id: 'sanitary', name: 'Pembalut', priority: 'medium' },
-        { id: 'mask', name: 'Masker', priority: 'medium' },
-      ]},
-      { category: '🔦 Info & Penerangan', items: [
-        { id: 'battery', name: 'Power bank (kapasitas besar)', priority: 'high' },
-        { id: 'flashlight', name: 'Senter', priority: 'high' },
-        { id: 'radio', name: 'Radio portabel', priority: 'medium' },
-      ]},
-      { category: '💰 Barang Berharga', items: [
-        { id: 'cash', name: 'Uang tunai (termasuk koin)', priority: 'high' },
-        { id: 'id', name: 'Fotokopi KTP', priority: 'medium' },
-        { id: 'insurance', name: 'Fotokopi kartu asuransi', priority: 'medium' },
-      ]},
-      { category: '🎒 Lainnya', items: [
-        { id: 'firstaid', name: 'Kotak P3K', priority: 'medium' },
-        { id: 'medicine', name: 'Obat rutin', priority: 'high' },
-        { id: 'tarp', name: 'Terpal', priority: 'low' },
-        { id: 'gloves', name: 'Sarung tangan kerja', priority: 'low' },
-      ]},
-    ],
-    ms: [
-      { category: '🚰 Air & Makanan', items: [
-        { id: 'water', name: 'Air minuman (3L×3 hari/orang)', priority: 'high' },
-        { id: 'food', name: 'Makanan kecemasan (3 hari)', priority: 'high' },
-        { id: 'can', name: 'Makanan tin/segera', priority: 'medium' },
-      ]},
-      { category: '🚽 Kebersihan', items: [
-        { id: 'toilet', name: 'Tandas kecemasan (Paling penting!)', priority: 'high' },
-        { id: 'wipes', name: 'Tisu basah', priority: 'medium' },
-        { id: 'sanitary', name: 'Tuala wanita', priority: 'medium' },
-        { id: 'mask', name: 'Topeng muka', priority: 'medium' },
-      ]},
-      { category: '🔦 Maklumat & Lampu', items: [
-        { id: 'battery', name: 'Power bank (kapasiti besar)', priority: 'high' },
-        { id: 'flashlight', name: 'Lampu suluh', priority: 'high' },
-        { id: 'radio', name: 'Radio mudah alih', priority: 'medium' },
-      ]},
-      { category: '💰 Barang Berharga', items: [
-        { id: 'cash', name: 'Wang tunai (termasuk syiling)', priority: 'high' },
-        { id: 'id', name: 'Salinan kad pengenalan', priority: 'medium' },
-        { id: 'insurance', name: 'Salinan kad insurans', priority: 'medium' },
-      ]},
-      { category: '🎒 Lain-lain', items: [
-        { id: 'firstaid', name: 'Kit pertolongan cemas', priority: 'medium' },
-        { id: 'medicine', name: 'Ubat biasa', priority: 'high' },
-        { id: 'tarp', name: 'Kanvas', priority: 'low' },
-        { id: 'gloves', name: 'Sarung tangan kerja', priority: 'low' },
-      ]},
-    ],
-    tl: [
-      { category: '🚰 Tubig at Pagkain', items: [
-        { id: 'water', name: 'Inuming tubig (3L×3 araw/tao)', priority: 'high' },
-        { id: 'food', name: 'Emergency food (3 araw)', priority: 'high' },
-        { id: 'can', name: 'De lata/instant na pagkain', priority: 'medium' },
-      ]},
-      { category: '🚽 Kalinisan', items: [
-        { id: 'toilet', name: 'Emergency toilet (Pinakamahalaga!)', priority: 'high' },
-        { id: 'wipes', name: 'Wet wipes', priority: 'medium' },
-        { id: 'sanitary', name: 'Sanitary napkin', priority: 'medium' },
-        { id: 'mask', name: 'Face mask', priority: 'medium' },
-      ]},
-      { category: '🔦 Impormasyon at Ilaw', items: [
-        { id: 'battery', name: 'Power bank (malaking kapasidad)', priority: 'high' },
-        { id: 'flashlight', name: 'Flashlight', priority: 'high' },
-        { id: 'radio', name: 'Portable radio', priority: 'medium' },
-      ]},
-      { category: '💰 Mahahalagang Gamit', items: [
-        { id: 'cash', name: 'Cash (pati barya)', priority: 'high' },
-        { id: 'id', name: 'Kopya ng ID', priority: 'medium' },
-        { id: 'insurance', name: 'Kopya ng insurance card', priority: 'medium' },
-      ]},
-      { category: '🎒 Iba pa', items: [
-        { id: 'firstaid', name: 'First aid kit', priority: 'medium' },
-        { id: 'medicine', name: 'Regular na gamot', priority: 'high' },
-        { id: 'tarp', name: 'Tarpaulin', priority: 'low' },
-        { id: 'gloves', name: 'Work gloves', priority: 'low' },
-      ]},
-    ],
-    ne: [
-      { category: '🚰 पानी र खाना', items: [
-        { id: 'water', name: 'पिउने पानी (३L×३ दिन/व्यक्ति)', priority: 'high' },
-        { id: 'food', name: 'आपतकालीन खाना (३ दिन)', priority: 'high' },
-        { id: 'can', name: 'डिब्बाबन्द/तयार खाना', priority: 'medium' },
-      ]},
-      { category: '🚽 सरसफाई', items: [
-        { id: 'toilet', name: 'आपतकालीन शौचालय (सबैभन्दा महत्त्वपूर्ण!)', priority: 'high' },
-        { id: 'wipes', name: 'भिजेको टिस्यु', priority: 'medium' },
-        { id: 'sanitary', name: 'सेनिटरी प्याड', priority: 'medium' },
-        { id: 'mask', name: 'मास्क', priority: 'medium' },
-      ]},
-      { category: '🔦 जानकारी र बत्ती', items: [
-        { id: 'battery', name: 'पावर ब्यांक (ठूलो क्षमता)', priority: 'high' },
-        { id: 'flashlight', name: 'टर्च', priority: 'high' },
-        { id: 'radio', name: 'पोर्टेबल रेडियो', priority: 'medium' },
-      ]},
-      { category: '💰 बहुमूल्य सामान', items: [
-        { id: 'cash', name: 'नगद (सिक्का पनि)', priority: 'high' },
-        { id: 'id', name: 'परिचय पत्रको प्रतिलिपि', priority: 'medium' },
-        { id: 'insurance', name: 'बीमा कार्डको प्रतिलिपि', priority: 'medium' },
-      ]},
-      { category: '🎒 अन्य', items: [
-        { id: 'firstaid', name: 'प्राथमिक उपचार किट', priority: 'medium' },
-        { id: 'medicine', name: 'नियमित औषधि', priority: 'high' },
-        { id: 'tarp', name: 'टार्प', priority: 'low' },
-        { id: 'gloves', name: 'काम गर्ने पन्जा', priority: 'low' },
-      ]},
-    ],
-    fr: [
-      { category: '🚰 Eau & Nourriture', items: [
-        { id: 'water', name: "Eau potable (3L×3 jours/pers.)", priority: 'high' },
-        { id: 'food', name: "Nourriture d'urgence (3 jours)", priority: 'high' },
-        { id: 'can', name: 'Conserves/Plats préparés', priority: 'medium' },
-      ]},
-      { category: '🚽 Hygiène', items: [
-        { id: 'toilet', name: "Toilettes d'urgence (Le plus important!)", priority: 'high' },
-        { id: 'wipes', name: 'Lingettes', priority: 'medium' },
-        { id: 'sanitary', name: 'Produits hygiéniques', priority: 'medium' },
-        { id: 'mask', name: 'Masques', priority: 'medium' },
-      ]},
-      { category: '🔦 Info & Éclairage', items: [
-        { id: 'battery', name: 'Batterie externe (grande capacité)', priority: 'high' },
-        { id: 'flashlight', name: 'Lampe torche', priority: 'high' },
-        { id: 'radio', name: 'Radio portable', priority: 'medium' },
-      ]},
-      { category: '💰 Objets de valeur', items: [
-        { id: 'cash', name: 'Espèces (pièces incluses)', priority: 'high' },
-        { id: 'id', name: "Copie de la pièce d'identité", priority: 'medium' },
-        { id: 'insurance', name: "Copie de la carte d'assurance", priority: 'medium' },
-      ]},
-      { category: '🎒 Autres', items: [
-        { id: 'firstaid', name: 'Trousse de secours', priority: 'medium' },
-        { id: 'medicine', name: 'Médicaments habituels', priority: 'high' },
-        { id: 'tarp', name: 'Bâche', priority: 'low' },
-        { id: 'gloves', name: 'Gants de travail', priority: 'low' },
-      ]},
-    ],
-    de: [
-      { category: '🚰 Wasser & Nahrung', items: [
-        { id: 'water', name: 'Trinkwasser (3L×3 Tage/Person)', priority: 'high' },
-        { id: 'food', name: 'Notvorrat (3 Tage)', priority: 'high' },
-        { id: 'can', name: 'Konserven/Fertiggerichte', priority: 'medium' },
-      ]},
-      { category: '🚽 Hygiene', items: [
-        { id: 'toilet', name: 'Nottoilette (Am wichtigsten!)', priority: 'high' },
-        { id: 'wipes', name: 'Feuchttücher', priority: 'medium' },
-        { id: 'sanitary', name: 'Hygieneartikel', priority: 'medium' },
-        { id: 'mask', name: 'Masken', priority: 'medium' },
-      ]},
-      { category: '🔦 Info & Beleuchtung', items: [
-        { id: 'battery', name: 'Powerbank (große Kapazität)', priority: 'high' },
-        { id: 'flashlight', name: 'Taschenlampe', priority: 'high' },
-        { id: 'radio', name: 'Tragbares Radio', priority: 'medium' },
-      ]},
-      { category: '💰 Wertsachen', items: [
-        { id: 'cash', name: 'Bargeld (inkl. Münzen)', priority: 'high' },
-        { id: 'id', name: 'Ausweiskopie', priority: 'medium' },
-        { id: 'insurance', name: 'Versicherungskartenkopie', priority: 'medium' },
-      ]},
-      { category: '🎒 Sonstiges', items: [
-        { id: 'firstaid', name: 'Erste-Hilfe-Set', priority: 'medium' },
-        { id: 'medicine', name: 'Regelmäßige Medikamente', priority: 'high' },
-        { id: 'tarp', name: 'Plane', priority: 'low' },
-        { id: 'gloves', name: 'Arbeitshandschuhe', priority: 'low' },
-      ]},
-    ],
-    it: [
-      { category: '🚰 Acqua e Cibo', items: [
-        { id: 'water', name: 'Acqua potabile (3L×3 giorni/pers.)', priority: 'high' },
-        { id: 'food', name: "Cibo d'emergenza (3 giorni)", priority: 'high' },
-        { id: 'can', name: 'Cibo in scatola/pronto', priority: 'medium' },
-      ]},
-      { category: '🚽 Igiene', items: [
-        { id: 'toilet', name: "Bagno d'emergenza (Il più importante!)", priority: 'high' },
-        { id: 'wipes', name: 'Salviette umidificate', priority: 'medium' },
-        { id: 'sanitary', name: 'Prodotti igienici', priority: 'medium' },
-        { id: 'mask', name: 'Mascherine', priority: 'medium' },
-      ]},
-      { category: '🔦 Info e Illuminazione', items: [
-        { id: 'battery', name: 'Power bank (grande capacità)', priority: 'high' },
-        { id: 'flashlight', name: 'Torcia', priority: 'high' },
-        { id: 'radio', name: 'Radio portatile', priority: 'medium' },
-      ]},
-      { category: '💰 Oggetti di valore', items: [
-        { id: 'cash', name: 'Contanti (monete incluse)', priority: 'high' },
-        { id: 'id', name: "Copia del documento d'identità", priority: 'medium' },
-        { id: 'insurance', name: 'Copia tessera sanitaria', priority: 'medium' },
-      ]},
-      { category: '🎒 Altro', items: [
-        { id: 'firstaid', name: 'Kit di pronto soccorso', priority: 'medium' },
-        { id: 'medicine', name: 'Medicine abituali', priority: 'high' },
-        { id: 'tarp', name: 'Telo impermeabile', priority: 'low' },
-        { id: 'gloves', name: 'Guanti da lavoro', priority: 'low' },
-      ]},
-    ],
-    es: [
-      { category: '🚰 Agua y Comida', items: [
-        { id: 'water', name: 'Agua potable (3L×3 días/pers.)', priority: 'high' },
-        { id: 'food', name: 'Comida de emergencia (3 días)', priority: 'high' },
-        { id: 'can', name: 'Conservas/Comida preparada', priority: 'medium' },
-      ]},
-      { category: '🚽 Higiene', items: [
-        { id: 'toilet', name: 'Inodoro de emergencia (¡Lo más importante!)', priority: 'high' },
-        { id: 'wipes', name: 'Toallitas húmedas', priority: 'medium' },
-        { id: 'sanitary', name: 'Productos sanitarios', priority: 'medium' },
-        { id: 'mask', name: 'Mascarillas', priority: 'medium' },
-      ]},
-      { category: '🔦 Info e Iluminación', items: [
-        { id: 'battery', name: 'Batería externa (gran capacidad)', priority: 'high' },
-        { id: 'flashlight', name: 'Linterna', priority: 'high' },
-        { id: 'radio', name: 'Radio portátil', priority: 'medium' },
-      ]},
-      { category: '💰 Objetos de valor', items: [
-        { id: 'cash', name: 'Efectivo (monedas incluidas)', priority: 'high' },
-        { id: 'id', name: 'Copia del DNI', priority: 'medium' },
-        { id: 'insurance', name: 'Copia de tarjeta de seguro', priority: 'medium' },
-      ]},
-      { category: '🎒 Otros', items: [
-        { id: 'firstaid', name: 'Botiquín de primeros auxilios', priority: 'medium' },
-        { id: 'medicine', name: 'Medicamentos habituales', priority: 'high' },
-        { id: 'tarp', name: 'Lona', priority: 'low' },
-        { id: 'gloves', name: 'Guantes de trabajo', priority: 'low' },
-      ]},
-    ],
-    easy_ja: [
-      { category: '🚰 みず・たべもの', items: [
-        { id: 'water', name: 'のみもの（みず 3リットル×3にち）', priority: 'high' },
-        { id: 'food', name: 'ひじょうしょく（3にちぶん）', priority: 'high' },
-        { id: 'can', name: 'かんづめ・レトルト', priority: 'medium' },
-      ]},
-      { category: '🚽 えいせい', items: [
-        { id: 'toilet', name: 'ひじょうトイレ（だいじ！）', priority: 'high' },
-        { id: 'wipes', name: 'ウェットティッシュ', priority: 'medium' },
-        { id: 'sanitary', name: 'せいりようひん', priority: 'medium' },
-        { id: 'mask', name: 'マスク', priority: 'medium' },
-      ]},
-      { category: '🔦 あかり・じょうほう', items: [
-        { id: 'battery', name: 'モバイルバッテリー', priority: 'high' },
-        { id: 'flashlight', name: 'かいちゅうでんとう', priority: 'high' },
-        { id: 'radio', name: 'ラジオ', priority: 'medium' },
-      ]},
-      { category: '💰 だいじなもの', items: [
-        { id: 'cash', name: 'おかね（こぜに も）', priority: 'high' },
-        { id: 'id', name: 'みぶんしょうめいしょの コピー', priority: 'medium' },
-      ]},
-      { category: '🎒 そのた', items: [
-        { id: 'firstaid', name: 'きゅうきゅうセット', priority: 'medium' },
-        { id: 'medicine', name: 'くすり', priority: 'high' },
-        { id: 'gloves', name: 'てぶくろ', priority: 'low' },
-      ]},
-    ],
-  };
-
-  const items = checklistItems[language as keyof typeof checklistItems] || checklistItems.en;
-
-  const toggleItem = (id: string) => {
-    setCheckedItems((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(id)) {
-        newSet.delete(id);
-      } else {
-        newSet.add(id);
-      }
-      return newSet;
-    });
-  };
-
-  // 優先度バッジ
-  const PriorityBadge = ({ priority }: { priority: 'high' | 'medium' | 'low' }) => {
-    const styles = {
-      high: 'bg-red-100 text-red-700 border-red-200',
-      medium: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-      low: 'bg-gray-100 text-gray-600 border-gray-200',
-    };
-    const labels = { high: '!!!', medium: '!!', low: '!' };
-
-    return (
-      <span className={`text-xs px-1.5 py-0.5 rounded border ${styles[priority]}`}>
-        {labels[priority]}
-      </span>
-    );
-  };
-
-  // 進捗計算
-  const totalItems = items.flatMap((s) => s.items).length;
-  const checkedCount = checkedItems.size;
-  const progress = totalItems > 0 ? (checkedCount / totalItems) * 100 : 0;
-
-  return (
-    <div className="space-y-4">
-      {/* 進捗バー */}
-      <div className="bg-white rounded-lg shadow p-4">
-        <div className="flex justify-between items-center mb-2">
-          <span className="font-medium text-gray-700">
-            {language === 'ja' ? '準備状況' : language === 'easy_ja' ? 'じゅんび' : 'Progress'}
-          </span>
-          <span className="text-sm text-gray-600">
-            {checkedCount} / {totalItems}
-          </span>
-        </div>
-        <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-green-500 transition-all duration-500 rounded-full"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-        {progress === 100 && (
-          <p className="text-center text-green-600 font-medium mt-2">
-            ✅ {language === 'ja' ? '準備完了！' : language === 'easy_ja' ? 'じゅんび かんりょう！' : 'All ready!'}
-          </p>
-        )}
-      </div>
-
-      {/* チェックリスト */}
-      {items.map((section, idx) => (
-        <div key={idx} className="bg-white rounded-lg shadow p-4">
-          <h3 className="font-bold text-lg mb-3">{section.category}</h3>
-          <ul className="space-y-2">
-            {section.items.map((item) => (
-              <li key={item.id} className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  id={item.id}
-                  checked={checkedItems.has(item.id)}
-                  onChange={() => toggleItem(item.id)}
-                  className="w-5 h-5 rounded accent-green-600"
-                />
-                <label
-                  htmlFor={item.id}
-                  className={`flex-1 cursor-pointer ${
-                    checkedItems.has(item.id) ? 'line-through text-gray-400' : 'text-gray-800'
-                  }`}
-                >
-                  {item.name}
-                </label>
-                <PriorityBadge priority={item.priority} />
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
-    </div>
-  );
-}

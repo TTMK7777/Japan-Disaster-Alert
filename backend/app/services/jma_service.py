@@ -4,12 +4,18 @@
 import httpx
 from typing import Optional
 from ..models import WeatherInfo, DisasterAlert
+from ..utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class JMAService:
     """気象庁データ取得サービス"""
 
-    BASE_URL = "https://www.jma.go.jp/bosai"
+    def __init__(self):
+        from ..config import settings
+        self.BASE_URL = settings.jma_base_url
+        self.timeout = settings.api_timeout
 
     # 都道府県コードマッピング
     AREA_CODES = {
@@ -70,13 +76,16 @@ class JMAService:
             area_code: 地域コード（例: 130000=東京都）
 
         Returns:
-            WeatherInfo: 天気情報
+            Optional[WeatherInfo]: 天気情報。取得に失敗した場合はNoneを返す。
+
+        Raises:
+            httpx.HTTPError: APIリクエストに失敗した場合（内部でキャッチされ、Noneを返す）
         """
         url = f"{self.BASE_URL}/forecast/data/overview_forecast/{area_code}.json"
 
         async with httpx.AsyncClient() as client:
             try:
-                response = await client.get(url, timeout=10.0)
+                response = await client.get(url, timeout=self.timeout)
                 response.raise_for_status()
                 data = response.json()
 
@@ -89,7 +98,7 @@ class JMAService:
                     text=data.get("text", "")
                 )
             except httpx.HTTPError as e:
-                print(f"気象情報取得エラー: {e}")
+                logger.error(f"気象情報取得エラー: {e}", exc_info=True)
                 return None
 
     async def get_earthquake_list(self, limit: int = 10) -> list[dict]:
@@ -106,12 +115,12 @@ class JMAService:
 
         async with httpx.AsyncClient() as client:
             try:
-                response = await client.get(url, timeout=10.0)
+                response = await client.get(url, timeout=self.timeout)
                 response.raise_for_status()
                 data = response.json()
                 return data[:limit]
             except httpx.HTTPError as e:
-                print(f"地震情報取得エラー: {e}")
+                logger.error(f"地震情報取得エラー: {e}", exc_info=True)
                 return []
 
     async def get_current_alerts(self) -> list[DisasterAlert]:
@@ -120,9 +129,14 @@ class JMAService:
 
         Returns:
             list[DisasterAlert]: 警報リスト
+        
+        Note:
+            このメソッドは将来の拡張用に予約されています。
+            現在はWarningServiceを使用してください。
         """
-        # TODO: 警報APIの実装
-        # 現時点ではサンプルデータを返す
+        # 注意: このメソッドは将来の拡張用です
+        # 現在はWarningService.get_warnings()を使用してください
+        logger.warning("get_current_alerts()は非推奨です。WarningServiceを使用してください。")
         return []
 
     def get_area_code(self, prefecture_name: str) -> Optional[str]:

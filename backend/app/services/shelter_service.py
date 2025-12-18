@@ -8,6 +8,9 @@ import json
 from typing import Optional
 from pathlib import Path
 from ..models import ShelterInfo
+from ..utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class ShelterService:
@@ -16,8 +19,11 @@ class ShelterService:
     # 国土地理院の避難所データURL
     GSI_SHELTER_URL = "https://www.geospatial.jp/ckan/dataset/hinanbasho"
 
-    # ローカルデータパス
-    DATA_DIR = Path(__file__).parent.parent.parent / "data" / "shelters"
+    def __init__(self):
+        from ..config import settings
+        self.DATA_DIR = settings.shelter_data_dir
+        self._shelters_cache: list[ShelterInfo] = []
+        self._load_shelter_data()
 
     # 災害種別マッピング
     DISASTER_TYPES = {
@@ -31,15 +37,12 @@ class ShelterService:
         "volcano": "火山現象",
     }
 
-    def __init__(self):
-        self._shelters_cache: list[ShelterInfo] = []
-        self._load_shelter_data()
 
     def _load_shelter_data(self):
         """避難所データをロード"""
         try:
             # サンプルデータをロード（実際のデータに置き換え可能）
-            sample_file = self.DATA_DIR / "sample_shelters.json"
+            sample_file = Path(self.DATA_DIR) / "sample_shelters.json"
             if sample_file.exists():
                 with open(sample_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
@@ -48,7 +51,7 @@ class ShelterService:
                 # デフォルトのサンプルデータ
                 self._shelters_cache = self._get_sample_shelters()
         except Exception as e:
-            print(f"避難所データロードエラー: {e}")
+            logger.error(f"避難所データロードエラー: {e}", exc_info=True)
             self._shelters_cache = self._get_sample_shelters()
 
     def _get_sample_shelters(self) -> list[ShelterInfo]:
@@ -225,10 +228,20 @@ class ShelterService:
 
         Returns:
             bool: 成功時True
+        
+        Note:
+            この機能は将来の拡張用に予約されています。
+            現在はサンプルデータを使用しています。
+            
+            Issue: #避難所データ自動更新機能の実装
+            - 国土地理院のCSV/GeoJSONからデータを取得
+            - 定期的なデータ更新スケジューリング
+            - データ検証とエラーハンドリング
         """
-        # TODO: 国土地理院のCSV/GeoJSONからデータを取得して更新
-        # 現在はサンプルデータを使用
-        print("避難所データの更新機能は今後実装予定です")
+        logger.info(
+            "避難所データの更新機能は今後実装予定です。"
+            "現在はサンプルデータを使用しています。"
+        )
         return True
 
     def get_disaster_types(self) -> dict[str, str]:

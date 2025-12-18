@@ -5,12 +5,18 @@ import httpx
 from typing import Optional
 from datetime import datetime
 from ..models import TsunamiInfo
+from ..utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class TsunamiService:
     """気象庁の津波情報を取得するサービス"""
 
-    BASE_URL = "https://www.jma.go.jp/bosai"
+    def __init__(self):
+        from ..config import settings
+        self.BASE_URL = settings.jma_base_url
+        self.timeout = settings.api_timeout
 
     # 津波警報レベルマッピング
     TSUNAMI_LEVELS = {
@@ -35,12 +41,12 @@ class TsunamiService:
 
         async with httpx.AsyncClient() as client:
             try:
-                response = await client.get(url, timeout=10.0)
+                response = await client.get(url, timeout=self.timeout)
                 response.raise_for_status()
                 data = response.json()
                 return self._parse_tsunami_list(data[:limit])
             except httpx.HTTPError as e:
-                print(f"津波情報取得エラー: {e}")
+                logger.error(f"津波情報取得エラー: {e}", exc_info=True)
                 return []
 
     def _parse_tsunami_list(self, data: list) -> list[TsunamiInfo]:
@@ -73,7 +79,7 @@ class TsunamiService:
                 )
                 tsunamis.append(tsunami)
             except Exception as e:
-                print(f"津波情報パースエラー: {e}")
+                logger.error(f"津波情報パースエラー: {e}", exc_info=True)
                 continue
 
         return tsunamis
@@ -153,9 +159,9 @@ class TsunamiService:
 
         async with httpx.AsyncClient() as client:
             try:
-                response = await client.get(url, timeout=10.0)
+                response = await client.get(url, timeout=self.timeout)
                 response.raise_for_status()
                 return response.json()
             except httpx.HTTPError as e:
-                print(f"津波詳細情報取得エラー: {e}")
+                logger.error(f"津波詳細情報取得エラー: {e}", exc_info=True)
                 return None

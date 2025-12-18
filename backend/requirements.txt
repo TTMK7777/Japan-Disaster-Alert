@@ -1,7 +1,15 @@
+# FastAPI関連
 fastapi==0.115.6
 uvicorn[standard]==0.34.0
-httpx==0.28.1
 pydantic==2.10.3
+pydantic-settings==2.6.1
+
+# HTTPクライアント
+httpx==0.28.1
+
+# 環境変数管理
 python-dotenv==1.0.1
+
+# キャッシュ・スケジューラー（将来の拡張用）
 redis==5.2.1
 apscheduler==3.11.0

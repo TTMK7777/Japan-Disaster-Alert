@@ -1,14 +1,18 @@
 """
 災害対応AIエージェントシステム - バックエンドAPI
 """
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-import httpx
+from starlette.middleware.base import BaseHTTPMiddleware
 from datetime import datetime
 from typing import Optional
-import asyncio
-import os
+
+from .config import settings
+from .utils.logger import get_logger
+from .utils.error_handler import handle_errors
+
+logger = get_logger(__name__)
 
 from .models import (
     EarthquakeInfo,
@@ -43,10 +47,10 @@ shelter_service = ShelterService()
 async def lifespan(app: FastAPI):
     """アプリケーションのライフサイクル管理"""
     # 起動時
-    print("災害対応AIシステム起動中...")
+    logger.info("災害対応AIシステム起動中...")
     yield
     # 終了時
-    print("災害対応AIシステム終了")
+    logger.info("災害対応AIシステム終了")
 
 
 app = FastAPI(
@@ -59,18 +63,37 @@ app = FastAPI(
 # CORS設定（環境変数で制御）
 # 本番環境では環境変数 ALLOWED_ORIGINS で許可オリジンを指定すること
 # 例: ALLOWED_ORIGINS=http://localhost:3000,https://example.com
-ALLOWED_ORIGINS = os.getenv(
-    "ALLOWED_ORIGINS",
-    "http://localhost:3000,http://localhost:8000"  # 開発環境のデフォルト
-).split(",")
+ALLOWED_ORIGINS = settings.allowed_origins.split(",")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,  # 環境変数で制限
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],  # 必要なメソッドのみ許可
+    allow_headers=["Content-Type", "Authorization"],  # 必要なヘッダーのみ許可
 )
+
+
+# セキュリティヘッダーミドルウェア
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """セキュリティヘッダーを追加するミドルウェア"""
+    
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        
+        # セキュリティヘッダーの追加
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        
+        # HTTPSを強制（本番環境のみ）
+        if settings.environment == "production":
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        
+        return response
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 
 @app.get("/", response_model=HealthResponse)
@@ -85,6 +108,7 @@ async def root():
 
 
 @app.get("/api/v1/earthquakes", response_model=list[EarthquakeInfo])
+@handle_errors
 async def get_earthquakes(limit: int = 10, lang: str = "ja"):
     """
     最新の地震情報を取得
@@ -92,28 +116,25 @@ async def get_earthquakes(limit: int = 10, lang: str = "ja"):
     - **limit**: 取得件数（デフォルト: 10）
     - **lang**: 言語コード（ja, en, zh, ko, vi, ne, easy_ja）
     """
-    try:
-        earthquakes = await p2p_service.get_recent_earthquakes(limit=limit)
+    earthquakes = await p2p_service.get_recent_earthquakes(limit=limit)
 
-        # 多言語翻訳（ハイブリッド方式）
-        if lang != "ja":
-            for eq in earthquakes:
-                # 震源地名翻訳（静的マッピング → Claude API → キャッシュ）
-                eq.location_translated = await translator.translate_location(
-                    eq.location, target_lang=lang
-                )
-                # 津波警報翻訳（静的マッピング）
-                eq.tsunami_warning_translated = translator.translate_tsunami_warning(
-                    eq.tsunami_warning, target_lang=lang
-                )
-                # メッセージ生成（テンプレートを使用）
-                eq.message_translated = _generate_translated_message(
-                    eq, lang, eq.location_translated, eq.tsunami_warning_translated
-                )
+    # 多言語翻訳（ハイブリッド方式）
+    if lang != "ja":
+        for eq in earthquakes:
+            # 震源地名翻訳（静的マッピング → Claude API → キャッシュ）
+            eq.location_translated = await translator.translate_location(
+                eq.location, target_lang=lang
+            )
+            # 津波警報翻訳（静的マッピング）
+            eq.tsunami_warning_translated = translator.translate_tsunami_warning(
+                eq.tsunami_warning, target_lang=lang
+            )
+            # メッセージ生成（テンプレートを使用）
+            eq.message_translated = _generate_translated_message(
+                eq, lang, eq.location_translated, eq.tsunami_warning_translated
+            )
 
-        return earthquakes
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return earthquakes
 
 
 def _generate_translated_message(
@@ -191,6 +212,7 @@ def _generate_translated_message(
 
 
 @app.get("/api/v1/weather/{area_code}", response_model=WeatherInfo)
+@handle_errors
 async def get_weather(area_code: str, lang: str = "ja"):
     """
     指定地域の天気情報を取得
@@ -198,21 +220,19 @@ async def get_weather(area_code: str, lang: str = "ja"):
     - **area_code**: 地域コード（例: 130000=東京都）
     - **lang**: 言語コード
     """
-    try:
-        weather = await jma_service.get_weather_forecast(area_code)
+    weather = await jma_service.get_weather_forecast(area_code)
 
-        # 多言語翻訳
-        if lang != "ja" and weather:
-            weather.text_translated = await translator.translate(
-                weather.text, target_lang=lang
-            )
+    # 多言語翻訳
+    if lang != "ja" and weather:
+        weather.text_translated = await translator.translate(
+            weather.text, target_lang=lang
+        )
 
-        return weather
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return weather
 
 
 @app.get("/api/v1/alerts", response_model=list[DisasterAlert])
+@handle_errors
 async def get_alerts(area_code: str = "130000", lang: str = "ja"):
     """
     現在発令中の警報・注意報を取得
@@ -220,39 +240,35 @@ async def get_alerts(area_code: str = "130000", lang: str = "ja"):
     - **area_code**: 地域コード（例: 130000=東京都）
     - **lang**: 言語コード（ja, en, zh, ko, vi, easy_ja）
     """
-    try:
-        # 警報サービスに多言語翻訳が組み込まれているため直接取得
-        alerts = await warning_service.get_warnings(area_code, lang)
-        return alerts
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    # 警報サービスに多言語翻訳が組み込まれているため直接取得
+    alerts = await warning_service.get_warnings(area_code, lang)
+    return alerts
 
 
 @app.get("/api/v1/warnings/special", response_model=list[DisasterAlert])
+@handle_errors
 async def get_special_warnings(lang: str = "ja"):
     """
     全国の特別警報を取得
 
     - **lang**: 言語コード
     """
-    try:
-        alerts = await warning_service.get_special_warnings()
+    alerts = await warning_service.get_special_warnings()
 
-        if lang != "ja":
-            for alert in alerts:
-                alert.title_translated = await translator.translate(
-                    alert.title, target_lang=lang
-                )
-                alert.description_translated = await translator.translate(
-                    alert.description, target_lang=lang
-                )
+    if lang != "ja":
+        for alert in alerts:
+            alert.title_translated = await translator.translate(
+                alert.title, target_lang=lang
+            )
+            alert.description_translated = await translator.translate(
+                alert.description, target_lang=lang
+            )
 
-        return alerts
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return alerts
 
 
 @app.post("/api/v1/translate", response_model=TranslatedMessage)
+@handle_errors
 async def translate_message(text: str, target_lang: str = "en"):
     """
     テキストを指定言語に翻訳
@@ -260,19 +276,17 @@ async def translate_message(text: str, target_lang: str = "en"):
     - **text**: 翻訳するテキスト
     - **target_lang**: 翻訳先言語コード
     """
-    try:
-        translated = await translator.translate(text, target_lang)
-        return TranslatedMessage(
-            original=text,
-            translated=translated,
-            source_lang="ja",
-            target_lang=target_lang
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    translated = await translator.translate(text, target_lang)
+    return TranslatedMessage(
+        original=text,
+        translated=translated,
+        source_lang="ja",
+        target_lang=target_lang
+    )
 
 
 @app.get("/api/v1/shelters", response_model=list[ShelterInfo])
+@handle_errors
 async def get_nearby_shelters(
     lat: float,
     lon: float,
@@ -291,25 +305,22 @@ async def get_nearby_shelters(
     - **disaster_type**: 災害種別（earthquake, tsunami, flood等）
     - **lang**: 言語コード
     """
-    try:
-        shelters = shelter_service.get_nearby_shelters(
-            lat=lat,
-            lon=lon,
-            radius_km=radius,
-            limit=limit,
-            disaster_type=disaster_type
-        )
+    shelters = shelter_service.get_nearby_shelters(
+        lat=lat,
+        lon=lon,
+        radius_km=radius,
+        limit=limit,
+        disaster_type=disaster_type
+    )
 
-        # 多言語翻訳
-        if lang != "ja":
-            for shelter in shelters:
-                shelter.name_translated = await translator.translate(
-                    shelter.name, target_lang=lang
-                )
+    # 多言語翻訳
+    if lang != "ja":
+        for shelter in shelters:
+            shelter.name_translated = await translator.translate(
+                shelter.name, target_lang=lang
+            )
 
-        return shelters
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return shelters
 
 
 @app.get("/api/v1/shelters/types")
@@ -319,6 +330,7 @@ async def get_shelter_disaster_types():
 
 
 @app.get("/api/v1/tsunami", response_model=list[TsunamiInfo])
+@handle_errors
 async def get_tsunami_info(limit: int = 10, lang: str = "ja"):
     """
     津波情報を取得
@@ -326,88 +338,75 @@ async def get_tsunami_info(limit: int = 10, lang: str = "ja"):
     - **limit**: 取得件数
     - **lang**: 言語コード
     """
-    try:
-        tsunamis = await tsunami_service.get_tsunami_list(limit=limit)
+    tsunamis = await tsunami_service.get_tsunami_list(limit=limit)
 
-        # 多言語翻訳
-        if lang != "ja":
-            for tsunami in tsunamis:
-                tsunami.message_translated = await translator.translate(
-                    tsunami.message, target_lang=lang
-                )
+    # 多言語翻訳
+    if lang != "ja":
+        for tsunami in tsunamis:
+            tsunami.message_translated = await translator.translate(
+                tsunami.message, target_lang=lang
+            )
 
-        return tsunamis
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return tsunamis
 
 
 @app.get("/api/v1/tsunami/active", response_model=list[TsunamiInfo])
+@handle_errors
 async def get_active_tsunami_warnings(lang: str = "ja"):
     """
     現在発令中の津波警報・注意報を取得
 
     - **lang**: 言語コード
     """
-    try:
-        tsunamis = await tsunami_service.get_active_warnings()
+    tsunamis = await tsunami_service.get_active_warnings()
 
-        if lang != "ja":
-            for tsunami in tsunamis:
-                tsunami.message_translated = await translator.translate(
-                    tsunami.message, target_lang=lang
-                )
+    if lang != "ja":
+        for tsunami in tsunamis:
+            tsunami.message_translated = await translator.translate(
+                tsunami.message, target_lang=lang
+            )
 
-        return tsunamis
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return tsunamis
 
 
 @app.get("/api/v1/volcanoes", response_model=list[VolcanoInfo])
+@handle_errors
 async def get_volcanoes(monitored_only: bool = True):
     """
     火山情報を取得
 
     - **monitored_only**: 常時観測火山のみ取得（デフォルト: True）
     """
-    try:
-        if monitored_only:
-            return await volcano_service.get_monitored_volcanoes()
-        else:
-            return await volcano_service.get_volcano_list()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    if monitored_only:
+        return await volcano_service.get_monitored_volcanoes()
+    else:
+        return await volcano_service.get_volcano_list()
 
 
 @app.get("/api/v1/volcanoes/warnings")
+@handle_errors
 async def get_volcano_warnings(lang: str = "ja"):
     """
     火山警報を取得
 
     - **lang**: 言語コード
     """
-    try:
-        warnings = await volcano_service.get_volcano_warnings()
-        return warnings
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    warnings = await volcano_service.get_volcano_warnings()
+    return warnings
 
 
 @app.get("/api/v1/volcanoes/{volcano_code}", response_model=VolcanoInfo)
+@handle_errors
 async def get_volcano_by_code(volcano_code: int):
     """
     特定の火山情報を取得
 
     - **volcano_code**: 火山コード
     """
-    try:
-        volcano = await volcano_service.get_volcano_by_code(volcano_code)
-        if not volcano:
-            raise HTTPException(status_code=404, detail="火山が見つかりません")
-        return volcano
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    volcano = await volcano_service.get_volcano_by_code(volcano_code)
+    if not volcano:
+        raise HTTPException(status_code=404, detail="火山が見つかりません")
+    return volcano
 
 
 # 対応言語一覧（15言語 + 日本語）
@@ -439,4 +438,13 @@ async def get_supported_languages():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    
+    uvicorn.run(
+        app,
+        host=settings.host,
+        port=settings.port,
+        reload=settings.reload,
+        log_level=settings.log_level.lower(),
+        timeout_keep_alive=settings.timeout_keep_alive,
+        limit_concurrency=settings.limit_concurrency,
+    )

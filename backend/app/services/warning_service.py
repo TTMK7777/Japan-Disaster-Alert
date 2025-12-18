@@ -5,12 +5,18 @@ import httpx
 from typing import Optional
 from datetime import datetime
 from ..models import DisasterAlert
+from ..utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class WarningService:
     """気象庁の警報・注意報を取得するサービス"""
 
-    BASE_URL = "https://www.jma.go.jp/bosai"
+    def __init__(self):
+        from ..config import settings
+        self.BASE_URL = settings.jma_base_url
+        self.timeout = settings.api_timeout
 
     # 警報・注意報コードマッピング（多言語対応）
     WARNING_CODES = {
@@ -129,12 +135,12 @@ class WarningService:
 
         async with httpx.AsyncClient() as client:
             try:
-                response = await client.get(url, timeout=10.0)
+                response = await client.get(url, timeout=self.timeout)
                 response.raise_for_status()
                 data = response.json()
                 return self._parse_warnings(data, area_code, lang)
             except httpx.HTTPError as e:
-                print(f"警報情報取得エラー: {e}")
+                logger.error(f"警報情報取得エラー: {e}", exc_info=True)
                 return []
 
     def _get_warning_name(self, code: str, lang: str) -> str:
@@ -227,13 +233,13 @@ class WarningService:
             for prefecture, area_code in self.AREA_CODES.items():
                 try:
                     url = f"{self.BASE_URL}/warning/data/warning/{area_code}.json"
-                    response = await client.get(url, timeout=10.0)
+                    response = await client.get(url, timeout=self.timeout)
                     if response.status_code == 200:
                         data = response.json()
                         alerts = self._parse_warnings(data, area_code)
                         all_alerts.extend(alerts)
                 except httpx.HTTPError as e:
-                    print(f"{prefecture}の警報取得エラー: {e}")
+                    logger.warning(f"{prefecture}の警報取得エラー: {e}")
                     continue
 
         return all_alerts
