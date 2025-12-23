@@ -1,5 +1,10 @@
 """
 気象庁 警報・注意報サービス（多言語対応）
+
+多言語対応方式:
+1. 静的マッピング（6言語: ja, en, zh, ko, vi, easy_ja） - 高速・無料
+2. Claude API（未対応の10言語） - 動的生成・有料
+3. キャッシュ活用 - APIコスト削減
 """
 import httpx
 from typing import Optional
@@ -9,14 +14,26 @@ from ..utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+# 静的マッピングで対応している言語
+STATIC_LANGUAGES = {"ja", "en", "zh", "ko", "vi", "easy_ja"}
+
 
 class WarningService:
     """気象庁の警報・注意報を取得するサービス"""
 
-    def __init__(self):
+    def __init__(self, translator=None):
         from ..config import settings
         self.BASE_URL = settings.jma_base_url
         self.timeout = settings.api_timeout
+        self._translator = translator  # TranslatorServiceへの参照（遅延初期化）
+
+    @property
+    def translator(self):
+        """TranslatorServiceを遅延初期化で取得"""
+        if self._translator is None:
+            from .translator import TranslatorService
+            self._translator = TranslatorService()
+        return self._translator
 
     # 警報・注意報コードマッピング（多言語対応）
     WARNING_CODES = {
@@ -126,7 +143,7 @@ class WarningService:
 
         Args:
             area_code: 地域コード（例: 130000=東京都）
-            lang: 言語コード（ja, en, zh, ko, vi, easy_ja）
+            lang: 言語コード（16言語対応: ja, en, zh, zh-TW, ko, vi, th, id, ms, tl, fr, de, it, es, ne, easy_ja）
 
         Returns:
             list[DisasterAlert]: 警報・注意報リスト
@@ -138,7 +155,14 @@ class WarningService:
                 response = await client.get(url, timeout=self.timeout)
                 response.raise_for_status()
                 data = response.json()
-                return self._parse_warnings(data, area_code, lang)
+
+                # 静的マッピング対応言語の場合は従来通り
+                if lang in STATIC_LANGUAGES:
+                    return self._parse_warnings(data, area_code, lang)
+
+                # 未対応言語の場合はClaude APIで動的生成
+                return await self._parse_warnings_with_ai(data, area_code, lang)
+
             except httpx.HTTPError as e:
                 logger.error(f"警報情報取得エラー: {e}", exc_info=True)
                 return []
@@ -219,6 +243,78 @@ class WarningService:
             return "advisory"
         else:
             return "watch"
+
+    async def _parse_warnings_with_ai(self, data: dict, area_code: str, lang: str) -> list[DisasterAlert]:
+        """
+        APIレスポンスを警報リストにパース（Claude API使用版）
+
+        未対応言語（th, id, ms, tl, fr, de, it, es, ne, zh-TW）の場合に使用
+        """
+        alerts = []
+        report_datetime = data.get("reportDatetime", "")
+
+        area_types = data.get("areaTypes", [])
+        if not area_types:
+            return alerts
+
+        for area_type in area_types:
+            areas = area_type.get("areas", [])
+            for area in areas:
+                area_name_ja = area.get("name", "")
+                warnings = area.get("warnings", [])
+
+                for warning in warnings:
+                    code = warning.get("code", "")
+                    status = warning.get("status", "")
+
+                    if status == "発表" and code in self.WARNING_CODES:
+                        warning_info = self.WARNING_CODES[code]
+                        title_ja = self._get_warning_name(code, "ja")
+                        severity = warning_info.get("severity", "medium")
+                        alert_id = f"{area_code}_{code}_{datetime.now().strftime('%Y%m%d%H%M')}"
+
+                        # Claude APIで動的生成
+                        try:
+                            generated = await self.translator.generate_warning_text(
+                                warning_name_ja=title_ja,
+                                target_lang=lang,
+                                area_name=area_name_ja,
+                                severity=severity
+                            )
+
+                            # 地域名も翻訳
+                            area_translated = await self.translator.translate_location(area_name_ja, lang)
+
+                            alerts.append(DisasterAlert(
+                                id=alert_id,
+                                type=self._get_alert_type(severity),
+                                title=title_ja,
+                                title_translated=generated.get("name"),
+                                description=f"{area_name_ja}に{title_ja}が発表されています。",
+                                description_translated=generated.get("description"),
+                                area=area_translated,
+                                issued_at=report_datetime,
+                                expires_at=None,
+                                severity=severity,
+                                action=generated.get("action")  # 推奨行動を追加
+                            ))
+                        except Exception as e:
+                            logger.error(f"AI生成エラー: {e}", exc_info=True)
+                            # フォールバック: 英語版を使用
+                            alerts.append(DisasterAlert(
+                                id=alert_id,
+                                type=self._get_alert_type(severity),
+                                title=title_ja,
+                                title_translated=self._get_warning_name(code, "en"),
+                                description=f"{area_name_ja}に{title_ja}が発表されています。",
+                                description_translated=self._get_description(area_name_ja, self._get_warning_name(code, "en"), "en"),
+                                area=area_name_ja,
+                                issued_at=report_datetime,
+                                expires_at=None,
+                                severity=severity
+                            ))
+
+        return alerts
 
     async def get_all_prefectures_warnings(self) -> list[DisasterAlert]:
         """

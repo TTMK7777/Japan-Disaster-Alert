@@ -30,6 +30,14 @@ class Settings(BaseSettings):
     anthropic_api_key: Optional[str] = os.getenv("ANTHROPIC_API_KEY")
     anthropic_api_version: str = "2023-06-01"
     anthropic_model: str = "claude-3-haiku-20240307"
+
+    # Gemini API
+    gemini_api_key: Optional[str] = os.getenv("GEMINI_API_KEY")
+    gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-2.0-flash-exp")
+
+    # 使用するAIプロバイダー（claude, gemini, auto）
+    # auto: Gemini優先、なければClaude
+    ai_provider: str = os.getenv("AI_PROVIDER", "auto")
     
     # CORS設定
     allowed_origins: str = os.getenv(

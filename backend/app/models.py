@@ -56,6 +56,7 @@ class DisasterAlert(BaseModel):
     issued_at: str
     expires_at: Optional[str] = None
     severity: str  # low, medium, high, extreme
+    action: Optional[str] = None  # 推奨行動（AI生成）
 
 
 class TranslatedMessage(BaseModel):
@@ -144,3 +145,22 @@ class VolcanoWarning(BaseModel):
     action: str  # 推奨される行動
     issued_at: str
     headline: Optional[str] = None
+
+
+class SafetyGuide(BaseModel):
+    """安全ガイド（AI生成）"""
+    disaster_type: str  # earthquake, tsunami, flood, typhoon, volcano, etc.
+    disaster_type_translated: Optional[str] = None
+    severity: str  # low, medium, high, extreme
+    location: Optional[str] = None
+    location_translated: Optional[str] = None
+    language: str
+    title: str  # ガイドのタイトル
+    summary: str  # 簡潔な要約（1-2文）
+    immediate_actions: list[str]  # 即時行動リスト
+    preparation_tips: list[str]  # 事前準備のヒント
+    evacuation_info: Optional[str] = None  # 避難に関する情報
+    emergency_contacts: Optional[str] = None  # 緊急連絡先
+    additional_notes: Optional[str] = None  # 補足情報
+    generated_at: str  # 生成日時
+    cached: bool = False  # キャッシュから取得したかどうか

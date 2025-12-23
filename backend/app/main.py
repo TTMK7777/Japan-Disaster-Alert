@@ -23,7 +23,8 @@ from .models import (
     ShelterInfo,
     TsunamiInfo,
     VolcanoInfo,
-    VolcanoWarning
+    VolcanoWarning,
+    SafetyGuide
 )
 from .services.jma_service import JMAService
 from .services.p2p_service import P2PQuakeService
@@ -434,6 +435,98 @@ SUPPORTED_LANGUAGES = {
 async def get_supported_languages():
     """対応言語一覧を取得"""
     return SUPPORTED_LANGUAGES
+
+
+# 対応災害種別
+SUPPORTED_DISASTER_TYPES = {
+    "earthquake": "地震",
+    "tsunami": "津波",
+    "flood": "洪水",
+    "typhoon": "台風",
+    "volcano": "火山噴火",
+    "landslide": "土砂災害"
+}
+
+
+@app.get("/api/v1/safety-guide", response_model=SafetyGuide)
+@handle_errors
+async def get_safety_guide(
+    disaster_type: str,
+    lang: str = "ja",
+    location: Optional[str] = None,
+    severity: str = "medium"
+):
+    """
+    災害種別に応じた安全ガイドを取得（AI生成）
+
+    - **disaster_type**: 災害種別（earthquake, tsunami, flood, typhoon, volcano, landslide）
+    - **lang**: 言語コード（16言語対応）
+    - **location**: 地域名（オプション、例: Tokyo, 東京）
+    - **severity**: 重要度（low, medium, high, extreme）
+
+    例:
+    - /api/v1/safety-guide?disaster_type=earthquake&lang=en&severity=high
+    - /api/v1/safety-guide?disaster_type=tsunami&lang=th&location=Osaka
+    """
+    from datetime import datetime
+
+    # 災害種別の検証
+    if disaster_type not in SUPPORTED_DISASTER_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"不正な災害種別です。対応: {', '.join(SUPPORTED_DISASTER_TYPES.keys())}"
+        )
+
+    # 重要度の検証
+    valid_severities = ["low", "medium", "high", "extreme"]
+    if severity not in valid_severities:
+        raise HTTPException(
+            status_code=400,
+            detail=f"不正な重要度です。対応: {', '.join(valid_severities)}"
+        )
+
+    # 安全ガイドを生成
+    guide_data = await translator.generate_safety_guide(
+        disaster_type=disaster_type,
+        target_lang=lang,
+        location=location,
+        severity=severity
+    )
+
+    if not guide_data:
+        raise HTTPException(status_code=500, detail="安全ガイドの生成に失敗しました")
+
+    # 災害種別の翻訳名を取得
+    disaster_type_translated = translator.get_disaster_type_name(disaster_type, lang)
+
+    # 地域名の翻訳（指定されている場合）
+    location_translated = None
+    if location:
+        location_translated = await translator.translate_location(location, lang)
+
+    return SafetyGuide(
+        disaster_type=disaster_type,
+        disaster_type_translated=disaster_type_translated,
+        severity=severity,
+        location=location,
+        location_translated=location_translated,
+        language=lang,
+        title=guide_data.get("title", ""),
+        summary=guide_data.get("summary", ""),
+        immediate_actions=guide_data.get("immediate_actions", []),
+        preparation_tips=guide_data.get("preparation_tips", []),
+        evacuation_info=guide_data.get("evacuation_info"),
+        emergency_contacts=guide_data.get("emergency_contacts"),
+        additional_notes=guide_data.get("additional_notes"),
+        generated_at=datetime.now().isoformat(),
+        cached=guide_data.get("cached", False)
+    )
+
+
+@app.get("/api/v1/safety-guide/types")
+async def get_disaster_types():
+    """対応災害種別一覧を取得"""
+    return SUPPORTED_DISASTER_TYPES
 
 
 if __name__ == "__main__":

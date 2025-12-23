@@ -244,14 +244,37 @@ class TranslatorService:
     def __init__(self):
         """初期化"""
         from ..config import settings
-        
+
+        # Claude API設定
         self.anthropic_api_key = settings.anthropic_api_key
         self.anthropic_api_version = settings.anthropic_api_version
         self.anthropic_model = settings.anthropic_model
+
+        # Gemini API設定
+        self.gemini_api_key = settings.gemini_api_key
+        self.gemini_model = settings.gemini_model
+
+        # AIプロバイダー設定
+        self.ai_provider = settings.ai_provider
+
         self.timeout = settings.api_timeout
         self._cache: dict[str, str] = {}
         self._cache_file = settings.translation_cache_file
         self._load_cache()
+
+    def _get_active_provider(self) -> Optional[str]:
+        """使用可能なAIプロバイダーを取得"""
+        if self.ai_provider == "gemini" and self.gemini_api_key:
+            return "gemini"
+        elif self.ai_provider == "claude" and self.anthropic_api_key:
+            return "claude"
+        elif self.ai_provider == "auto":
+            # Gemini優先
+            if self.gemini_api_key:
+                return "gemini"
+            elif self.anthropic_api_key:
+                return "claude"
+        return None
 
     def _load_cache(self):
         """キャッシュをファイルから読み込み"""
@@ -300,20 +323,105 @@ class TranslatorService:
         if cache_key in self._cache:
             return self._cache[cache_key]
 
-        # 3. Claude APIで翻訳（APIキーがある場合）
-        if self.anthropic_api_key:
+        # 3. AI APIで翻訳（利用可能なプロバイダーを使用）
+        provider = self._get_active_provider()
+        if provider:
             try:
-                translated = await self._translate_with_claude(location, target_lang)
+                translated = await self._translate_with_ai(location, target_lang)
                 if translated:
                     # キャッシュに保存
                     self._cache[cache_key] = translated
                     self._save_cache()
                     return translated
             except Exception as e:
-                logger.error(f"Claude API翻訳エラー: {e}", exc_info=True)
+                logger.error(f"AI API翻訳エラー ({provider}): {e}", exc_info=True)
 
         # 4. フォールバック: 元のテキストを返す
         return location
+
+    # 言語名マッピング（共通）
+    LANG_NAMES = {
+        "en": "English",
+        "zh": "Simplified Chinese",
+        "zh-TW": "Traditional Chinese",
+        "ko": "Korean",
+        "vi": "Vietnamese",
+        "th": "Thai",
+        "id": "Indonesian",
+        "ms": "Malay",
+        "tl": "Filipino/Tagalog",
+        "fr": "French",
+        "de": "German",
+        "it": "Italian",
+        "es": "Spanish",
+        "ne": "Nepali",
+        "easy_ja": "Simple Japanese (やさしい日本語)",
+    }
+
+    async def _translate_with_ai(self, text: str, target_lang: str) -> Optional[str]:
+        """
+        利用可能なAI APIを使用して翻訳
+
+        Args:
+            text: 翻訳するテキスト
+            target_lang: 翻訳先言語コード
+
+        Returns:
+            翻訳されたテキスト
+        """
+        provider = self._get_active_provider()
+        if provider == "gemini":
+            return await self._translate_with_gemini(text, target_lang)
+        elif provider == "claude":
+            return await self._translate_with_claude(text, target_lang)
+        return None
+
+    async def _translate_with_gemini(self, text: str, target_lang: str) -> Optional[str]:
+        """
+        Gemini APIを使用して翻訳
+
+        Args:
+            text: 翻訳するテキスト
+            target_lang: 翻訳先言語コード
+
+        Returns:
+            翻訳されたテキスト
+        """
+        try:
+            import httpx
+
+            target_name = self.LANG_NAMES.get(target_lang, target_lang)
+
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.gemini_model}:generateContent?key={self.gemini_api_key}"
+
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    url,
+                    headers={"Content-Type": "application/json"},
+                    json={
+                        "contents": [{
+                            "parts": [{
+                                "text": f"Translate this Japanese earthquake location name to {target_name}. Only output the translation, nothing else.\n\n{text}"
+                            }]
+                        }],
+                        "generationConfig": {
+                            "maxOutputTokens": 100,
+                            "temperature": 0.1
+                        }
+                    },
+                    timeout=self.timeout
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    return data["candidates"][0]["content"]["parts"][0]["text"].strip()
+                else:
+                    logger.warning(f"Gemini API error: {response.status_code} - {response.text}")
+                    return None
+
+        except Exception as e:
+            logger.error(f"Gemini API request error: {e}", exc_info=True)
+            return None
 
     async def _translate_with_claude(self, text: str, target_lang: str) -> Optional[str]:
         """
@@ -329,25 +437,7 @@ class TranslatorService:
         try:
             import httpx
 
-            lang_names = {
-                "en": "English",
-                "zh": "Simplified Chinese",
-                "zh-TW": "Traditional Chinese",
-                "ko": "Korean",
-                "vi": "Vietnamese",
-                "th": "Thai",
-                "id": "Indonesian",
-                "ms": "Malay",
-                "tl": "Filipino/Tagalog",
-                "fr": "French",
-                "de": "German",
-                "it": "Italian",
-                "es": "Spanish",
-                "ne": "Nepali",
-                "easy_ja": "Simple Japanese (やさしい日本語)",
-            }
-
-            target_name = lang_names.get(target_lang, target_lang)
+            target_name = self.LANG_NAMES.get(target_lang, target_lang)
 
             async with httpx.AsyncClient() as client:
                 response = await client.post(
@@ -423,20 +513,21 @@ class TranslatorService:
         if template_translation:
             return template_translation
 
-        # Claude APIで翻訳（APIキーがある場合）
-        if self.anthropic_api_key:
+        # AI APIで翻訳（利用可能なプロバイダーを使用）
+        provider = self._get_active_provider()
+        if provider:
             cache_key = self._get_cache_key(text, target_lang)
             if cache_key in self._cache:
                 return self._cache[cache_key]
 
             try:
-                translated = await self._translate_with_claude(text, target_lang)
+                translated = await self._translate_with_ai(text, target_lang)
                 if translated:
                     self._cache[cache_key] = translated
                     self._save_cache()
                     return translated
             except Exception as e:
-                logger.error(f"翻訳エラー: {e}", exc_info=True)
+                logger.error(f"翻訳エラー ({provider}): {e}", exc_info=True)
 
         # フォールバック
         return text
@@ -521,3 +612,521 @@ class TranslatorService:
             int: 登録地名数
         """
         return len(LOCATION_TRANSLATIONS)
+
+    async def generate_warning_text(
+        self,
+        warning_name_ja: str,
+        target_lang: str,
+        area_name: Optional[str] = None,
+        severity: str = "medium"
+    ) -> dict[str, str]:
+        """
+        警報名と説明文をClaude APIで動的生成
+
+        Args:
+            warning_name_ja: 日本語の警報名（例: "大雨警報"）
+            target_lang: 翻訳先言語コード
+            area_name: 地域名（オプション）
+            severity: 重要度（low, medium, high, extreme）
+
+        Returns:
+            dict: {"name": 翻訳された警報名, "description": 説明文, "action": 推奨行動}
+        """
+        if target_lang == "ja":
+            return {
+                "name": warning_name_ja,
+                "description": f"{area_name}に{warning_name_ja}が発表されています。" if area_name else f"{warning_name_ja}が発表されています。",
+                "action": self._get_default_action_ja(severity)
+            }
+
+        # キャッシュを確認
+        cache_key = self._get_cache_key(f"warning:{warning_name_ja}:{area_name}:{severity}", target_lang)
+        if cache_key in self._cache:
+            try:
+                return json.loads(self._cache[cache_key])
+            except json.JSONDecodeError:
+                pass
+
+        # AI APIで生成
+        provider = self._get_active_provider()
+        if provider:
+            try:
+                result = await self._generate_warning_with_ai(
+                    warning_name_ja, target_lang, area_name, severity
+                )
+                if result:
+                    # キャッシュに保存
+                    self._cache[cache_key] = json.dumps(result, ensure_ascii=False)
+                    self._save_cache()
+                    return result
+            except Exception as e:
+                logger.error(f"警報テキスト生成エラー ({provider}): {e}", exc_info=True)
+
+        # フォールバック: 基本的な翻訳のみ
+        fallback_name = await self._translate_with_ai(warning_name_ja, target_lang) if provider else warning_name_ja
+        return {
+            "name": fallback_name or warning_name_ja,
+            "description": "",
+            "action": ""
+        }
+
+    async def _generate_warning_with_ai(
+        self,
+        warning_name_ja: str,
+        target_lang: str,
+        area_name: Optional[str],
+        severity: str
+    ) -> Optional[dict[str, str]]:
+        """
+        利用可能なAI APIを使用して警報テキストを生成
+
+        Args:
+            warning_name_ja: 日本語の警報名
+            target_lang: 翻訳先言語コード
+            area_name: 地域名
+            severity: 重要度
+
+        Returns:
+            dict: 生成されたテキスト
+        """
+        provider = self._get_active_provider()
+        if provider == "gemini":
+            return await self._generate_warning_with_gemini(warning_name_ja, target_lang, area_name, severity)
+        elif provider == "claude":
+            return await self._generate_warning_with_claude(warning_name_ja, target_lang, area_name, severity)
+        return None
+
+    def _build_warning_prompt(self, warning_name_ja: str, target_lang: str, area_name: Optional[str], severity: str) -> str:
+        """警報生成用のプロンプトを構築"""
+        target_name = self.LANG_NAMES.get(target_lang, target_lang)
+
+        severity_context = {
+            "low": "minor advisory",
+            "medium": "advisory requiring attention",
+            "high": "serious warning requiring caution",
+            "extreme": "emergency warning requiring immediate action"
+        }
+        severity_desc = severity_context.get(severity, "advisory")
+        area_context = f" for {area_name}" if area_name else ""
+
+        return f"""Translate and generate disaster warning information in {target_name}.
+
+Japanese warning name: {warning_name_ja}
+Severity level: {severity_desc}
+Area: {area_name or "general"}
+
+Return ONLY a JSON object with these exact keys (no markdown, no explanation):
+{{
+  "name": "translated warning name",
+  "description": "brief explanation of this warning type{area_context} (1 sentence)",
+  "action": "recommended immediate action for people in affected area (1-2 sentences)"
+}}
+
+Important:
+- Keep translations accurate and culturally appropriate
+- For "easy_ja", use simple hiragana and basic vocabulary
+- Action should be practical and specific to this warning type"""
+
+    async def _generate_warning_with_gemini(
+        self,
+        warning_name_ja: str,
+        target_lang: str,
+        area_name: Optional[str],
+        severity: str
+    ) -> Optional[dict[str, str]]:
+        """
+        Gemini APIを使用して警報テキストを生成
+        """
+        try:
+            import httpx
+
+            prompt = self._build_warning_prompt(warning_name_ja, target_lang, area_name, severity)
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.gemini_model}:generateContent?key={self.gemini_api_key}"
+
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    url,
+                    headers={"Content-Type": "application/json"},
+                    json={
+                        "contents": [{
+                            "parts": [{"text": prompt}]
+                        }],
+                        "generationConfig": {
+                            "maxOutputTokens": 500,
+                            "temperature": 0.1
+                        }
+                    },
+                    timeout=self.timeout
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    content = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+                    # JSONをパース（マークダウンのコードブロックを除去）
+                    if content.startswith("```"):
+                        content = content.split("```")[1]
+                        if content.startswith("json"):
+                            content = content[4:]
+                    content = content.strip()
+                    try:
+                        result = json.loads(content)
+                        return {
+                            "name": result.get("name", warning_name_ja),
+                            "description": result.get("description", ""),
+                            "action": result.get("action", "")
+                        }
+                    except json.JSONDecodeError:
+                        logger.warning(f"Gemini応答のJSONパースエラー: {content}")
+                        return None
+                else:
+                    logger.warning(f"Gemini API error: {response.status_code}")
+                    return None
+
+        except Exception as e:
+            logger.error(f"Gemini警報テキスト生成エラー: {e}", exc_info=True)
+            return None
+
+    async def _generate_warning_with_claude(
+        self,
+        warning_name_ja: str,
+        target_lang: str,
+        area_name: Optional[str],
+        severity: str
+    ) -> Optional[dict[str, str]]:
+        """
+        Claude APIを使用して警報テキストを生成
+        """
+        try:
+            import httpx
+
+            prompt = self._build_warning_prompt(warning_name_ja, target_lang, area_name, severity)
+
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    "https://api.anthropic.com/v1/messages",
+                    headers={
+                        "Content-Type": "application/json",
+                        "X-API-Key": self.anthropic_api_key,
+                        "anthropic-version": self.anthropic_api_version
+                    },
+                    json={
+                        "model": self.anthropic_model,
+                        "max_tokens": 500,
+                        "messages": [{
+                            "role": "user",
+                            "content": prompt
+                        }]
+                    },
+                    timeout=self.timeout
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    content = data["content"][0]["text"].strip()
+                    try:
+                        result = json.loads(content)
+                        return {
+                            "name": result.get("name", warning_name_ja),
+                            "description": result.get("description", ""),
+                            "action": result.get("action", "")
+                        }
+                    except json.JSONDecodeError:
+                        logger.warning(f"Claude応答のJSONパースエラー: {content}")
+                        return None
+                else:
+                    logger.warning(f"Claude API error: {response.status_code}")
+                    return None
+
+        except Exception as e:
+            logger.error(f"Claude警報テキスト生成エラー: {e}", exc_info=True)
+            return None
+
+    def _get_default_action_ja(self, severity: str) -> str:
+        """日本語のデフォルト推奨行動を取得"""
+        actions = {
+            "low": "最新の情報に注意してください。",
+            "medium": "今後の情報に注意し、必要に応じて安全な場所へ移動してください。",
+            "high": "屋外での活動を控え、安全な場所で待機してください。",
+            "extreme": "直ちに安全な場所へ避難してください。命を守る行動を取ってください。"
+        }
+        return actions.get(severity, actions["medium"])
+
+    # 災害種別の多言語マッピング
+    DISASTER_TYPES = {
+        "earthquake": {
+            "ja": "地震", "en": "Earthquake", "zh": "地震", "ko": "지진",
+            "vi": "Động đất", "th": "แผ่นดินไหว", "fr": "Séisme", "de": "Erdbeben",
+            "es": "Terremoto", "it": "Terremoto", "id": "Gempa bumi", "ms": "Gempa bumi",
+            "tl": "Lindol", "ne": "भूकम्प", "zh-TW": "地震", "easy_ja": "じしん"
+        },
+        "tsunami": {
+            "ja": "津波", "en": "Tsunami", "zh": "海啸", "ko": "쓰나미",
+            "vi": "Sóng thần", "th": "สึนามิ", "fr": "Tsunami", "de": "Tsunami",
+            "es": "Tsunami", "it": "Tsunami", "id": "Tsunami", "ms": "Tsunami",
+            "tl": "Tsunami", "ne": "सुनामी", "zh-TW": "海嘯", "easy_ja": "つなみ"
+        },
+        "flood": {
+            "ja": "洪水", "en": "Flood", "zh": "洪水", "ko": "홍수",
+            "vi": "Lũ lụt", "th": "น้ำท่วม", "fr": "Inondation", "de": "Überschwemmung",
+            "es": "Inundación", "it": "Alluvione", "id": "Banjir", "ms": "Banjir",
+            "tl": "Baha", "ne": "बाढी", "zh-TW": "洪水", "easy_ja": "こうずい"
+        },
+        "typhoon": {
+            "ja": "台風", "en": "Typhoon", "zh": "台风", "ko": "태풍",
+            "vi": "Bão", "th": "พายุไต้ฝุ่น", "fr": "Typhon", "de": "Taifun",
+            "es": "Tifón", "it": "Tifone", "id": "Topan", "ms": "Taufan",
+            "tl": "Bagyo", "ne": "आँधी", "zh-TW": "颱風", "easy_ja": "たいふう"
+        },
+        "volcano": {
+            "ja": "火山噴火", "en": "Volcanic Eruption", "zh": "火山喷发", "ko": "화산 분화",
+            "vi": "Núi lửa phun trào", "th": "ภูเขาไฟระเบิด", "fr": "Éruption volcanique", "de": "Vulkanausbruch",
+            "es": "Erupción volcánica", "it": "Eruzione vulcanica", "id": "Letusan gunung berapi", "ms": "Letusan gunung berapi",
+            "tl": "Pagsabog ng bulkan", "ne": "ज्वालामुखी विस्फोट", "zh-TW": "火山噴發", "easy_ja": "かざん ふんか"
+        },
+        "landslide": {
+            "ja": "土砂災害", "en": "Landslide", "zh": "山体滑坡", "ko": "산사태",
+            "vi": "Sạt lở đất", "th": "ดินถล่ม", "fr": "Glissement de terrain", "de": "Erdrutsch",
+            "es": "Deslizamiento de tierra", "it": "Frana", "id": "Tanah longsor", "ms": "Tanah runtuh",
+            "tl": "Pagguho ng lupa", "ne": "पहिरो", "zh-TW": "土石流", "easy_ja": "どしゃ さいがい"
+        }
+    }
+
+    async def generate_safety_guide(
+        self,
+        disaster_type: str,
+        target_lang: str,
+        location: Optional[str] = None,
+        severity: str = "medium"
+    ) -> Optional[dict]:
+        """
+        災害種別に応じた安全ガイドを生成
+
+        Args:
+            disaster_type: 災害種別（earthquake, tsunami, flood, typhoon, volcano, landslide）
+            target_lang: 言語コード
+            location: 地域名（オプション）
+            severity: 重要度（low, medium, high, extreme）
+
+        Returns:
+            dict: 安全ガイド情報
+        """
+        # キャッシュキー生成
+        cache_key = self._get_cache_key(f"safety:{disaster_type}:{location}:{severity}", target_lang)
+
+        # キャッシュ確認
+        if cache_key in self._cache:
+            try:
+                cached_data = json.loads(self._cache[cache_key])
+                cached_data["cached"] = True
+                return cached_data
+            except json.JSONDecodeError:
+                pass
+
+        # AI APIで生成
+        provider = self._get_active_provider()
+        if provider:
+            try:
+                result = await self._generate_safety_guide_with_ai(
+                    disaster_type, target_lang, location, severity
+                )
+                if result:
+                    # キャッシュに保存
+                    self._cache[cache_key] = json.dumps(result, ensure_ascii=False)
+                    self._save_cache()
+                    return result
+            except Exception as e:
+                logger.error(f"安全ガイド生成エラー ({provider}): {e}", exc_info=True)
+
+        # フォールバック: 基本的なガイドを返す
+        return self._get_fallback_safety_guide(disaster_type, target_lang, location, severity)
+
+    def _build_safety_guide_prompt(
+        self,
+        disaster_type: str,
+        target_lang: str,
+        location: Optional[str],
+        severity: str
+    ) -> str:
+        """安全ガイド生成用のプロンプトを構築"""
+        target_name = self.LANG_NAMES.get(target_lang, target_lang)
+
+        severity_context = {
+            "low": "minor risk, general awareness needed",
+            "medium": "moderate risk, caution advised",
+            "high": "serious risk, immediate precautions needed",
+            "extreme": "life-threatening emergency, immediate action required"
+        }
+        severity_desc = severity_context.get(severity, "moderate risk")
+
+        location_context = f" in {location}" if location else ""
+
+        return f"""Generate a comprehensive safety guide for {disaster_type}{location_context} in {target_name}.
+
+Severity level: {severity_desc}
+
+Return ONLY a JSON object with these exact keys (no markdown, no explanation):
+{{
+  "title": "Safety guide title in {target_name}",
+  "summary": "Brief 1-2 sentence summary of what to do",
+  "immediate_actions": ["action 1", "action 2", "action 3", "action 4", "action 5"],
+  "preparation_tips": ["tip 1", "tip 2", "tip 3"],
+  "evacuation_info": "Information about when and where to evacuate",
+  "emergency_contacts": "Emergency numbers and resources (use Japan numbers: Police 110, Fire/Ambulance 119, Coast Guard 118)",
+  "additional_notes": "Any additional important information"
+}}
+
+Important guidelines:
+- All text must be in {target_name}
+- For "easy_ja", use simple hiragana and basic vocabulary with spaces between words
+- immediate_actions should be specific, actionable steps in order of priority
+- Include Japan-specific emergency information
+- Be culturally appropriate and practical
+- Focus on life-saving information first"""
+
+    async def _generate_safety_guide_with_ai(
+        self,
+        disaster_type: str,
+        target_lang: str,
+        location: Optional[str],
+        severity: str
+    ) -> Optional[dict]:
+        """AIを使用して安全ガイドを生成"""
+        provider = self._get_active_provider()
+        if provider == "gemini":
+            return await self._generate_safety_guide_with_gemini(disaster_type, target_lang, location, severity)
+        elif provider == "claude":
+            return await self._generate_safety_guide_with_claude(disaster_type, target_lang, location, severity)
+        return None
+
+    async def _generate_safety_guide_with_gemini(
+        self,
+        disaster_type: str,
+        target_lang: str,
+        location: Optional[str],
+        severity: str
+    ) -> Optional[dict]:
+        """Gemini APIを使用して安全ガイドを生成"""
+        try:
+            import httpx
+
+            prompt = self._build_safety_guide_prompt(disaster_type, target_lang, location, severity)
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.gemini_model}:generateContent?key={self.gemini_api_key}"
+
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    url,
+                    headers={"Content-Type": "application/json"},
+                    json={
+                        "contents": [{"parts": [{"text": prompt}]}],
+                        "generationConfig": {
+                            "maxOutputTokens": 1500,
+                            "temperature": 0.2
+                        }
+                    },
+                    timeout=30.0  # 長めのタイムアウト
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    content = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+
+                    # JSONをパース（マークダウンのコードブロックを除去）
+                    if content.startswith("```"):
+                        content = content.split("```")[1]
+                        if content.startswith("json"):
+                            content = content[4:]
+                    content = content.strip()
+
+                    try:
+                        result = json.loads(content)
+                        result["cached"] = False
+                        return result
+                    except json.JSONDecodeError:
+                        logger.warning(f"Gemini安全ガイドのJSONパースエラー: {content[:200]}")
+                        return None
+                else:
+                    logger.warning(f"Gemini API error: {response.status_code}")
+                    return None
+
+        except Exception as e:
+            logger.error(f"Gemini安全ガイド生成エラー: {e}", exc_info=True)
+            return None
+
+    async def _generate_safety_guide_with_claude(
+        self,
+        disaster_type: str,
+        target_lang: str,
+        location: Optional[str],
+        severity: str
+    ) -> Optional[dict]:
+        """Claude APIを使用して安全ガイドを生成"""
+        try:
+            import httpx
+
+            prompt = self._build_safety_guide_prompt(disaster_type, target_lang, location, severity)
+
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    "https://api.anthropic.com/v1/messages",
+                    headers={
+                        "Content-Type": "application/json",
+                        "X-API-Key": self.anthropic_api_key,
+                        "anthropic-version": self.anthropic_api_version
+                    },
+                    json={
+                        "model": self.anthropic_model,
+                        "max_tokens": 1500,
+                        "messages": [{"role": "user", "content": prompt}]
+                    },
+                    timeout=30.0
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    content = data["content"][0]["text"].strip()
+                    try:
+                        result = json.loads(content)
+                        result["cached"] = False
+                        return result
+                    except json.JSONDecodeError:
+                        logger.warning(f"Claude安全ガイドのJSONパースエラー: {content[:200]}")
+                        return None
+                else:
+                    logger.warning(f"Claude API error: {response.status_code}")
+                    return None
+
+        except Exception as e:
+            logger.error(f"Claude安全ガイド生成エラー: {e}", exc_info=True)
+            return None
+
+    def _get_fallback_safety_guide(
+        self,
+        disaster_type: str,
+        target_lang: str,
+        location: Optional[str],
+        severity: str
+    ) -> dict:
+        """フォールバック用の基本安全ガイド（日本語）"""
+        disaster_name = self.DISASTER_TYPES.get(disaster_type, {}).get("ja", disaster_type)
+
+        return {
+            "title": f"{disaster_name}の安全ガイド",
+            "summary": f"{disaster_name}が発生した場合の安全対策です。落ち着いて行動してください。",
+            "immediate_actions": [
+                "身の安全を確保してください",
+                "最新の情報を確認してください",
+                "必要に応じて避難してください"
+            ],
+            "preparation_tips": [
+                "非常用持ち出し袋を準備しておきましょう",
+                "避難場所を確認しておきましょう"
+            ],
+            "evacuation_info": "市区町村の指示に従って避難してください",
+            "emergency_contacts": "警察: 110 / 消防・救急: 119 / 海上保安庁: 118",
+            "additional_notes": "正確な情報は公式発表をご確認ください",
+            "cached": False
+        }
+
+    def get_disaster_type_name(self, disaster_type: str, lang: str) -> str:
+        """災害種別の翻訳名を取得"""
+        return self.DISASTER_TYPES.get(disaster_type, {}).get(lang, disaster_type)
