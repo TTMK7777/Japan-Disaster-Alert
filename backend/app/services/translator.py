@@ -595,6 +595,86 @@ class TranslatorService:
 
         return None
 
+    def generate_earthquake_message(
+        self,
+        lang: str,
+        location: str,
+        magnitude: float,
+        intensity: str,
+        depth: int,
+        tsunami_warning: str,
+        tsunami_warning_translated: str
+    ) -> str:
+        """
+        地震情報メッセージを多言語で生成
+
+        Args:
+            lang: 言語コード
+            location: 翻訳済み震源地名
+            magnitude: マグニチュード
+            intensity: 最大震度
+            depth: 震源の深さ（km）
+            tsunami_warning: 津波警報（日本語）
+            tsunami_warning_translated: 翻訳済み津波情報
+
+        Returns:
+            str: 翻訳されたメッセージ
+        """
+        # 各言語のテンプレート（15言語対応）
+        templates = {
+            "en": "[Earthquake] An earthquake occurred in {location}. Magnitude {magnitude}, Maximum intensity {intensity}. Depth: {depth}km. {tsunami_info}",
+            "zh": "【地震信息】{location}发生地震。震级{magnitude}，最大震度{intensity}。震源深度约{depth}公里。{tsunami_info}",
+            "zh-TW": "【地震資訊】{location}發生地震。規模{magnitude}，最大震度{intensity}。震源深度約{depth}公里。{tsunami_info}",
+            "ko": "【지진정보】{location}에서 지진이 발생했습니다. 규모 {magnitude}, 최대진도 {intensity}. 진원 깊이 약 {depth}km. {tsunami_info}",
+            "vi": "[Động đất] Động đất xảy ra tại {location}. Cường độ {magnitude}, Cường độ tối đa {intensity}. Độ sâu: {depth}km. {tsunami_info}",
+            "th": "[แผ่นดินไหว] เกิดแผ่นดินไหวที่ {location} ขนาด {magnitude} ความรุนแรงสูงสุด {intensity} ความลึก: {depth} กม. {tsunami_info}",
+            "id": "[Gempa] Gempa bumi terjadi di {location}. Magnitudo {magnitude}, Intensitas maksimum {intensity}. Kedalaman: {depth}km. {tsunami_info}",
+            "ms": "[Gempa Bumi] Gempa bumi berlaku di {location}. Magnitud {magnitude}, Keamatan maksimum {intensity}. Kedalaman: {depth}km. {tsunami_info}",
+            "tl": "[Lindol] Nagkaroon ng lindol sa {location}. Magnitude {magnitude}, Pinakamataas na intensity {intensity}. Lalim: {depth}km. {tsunami_info}",
+            "fr": "[Séisme] Un séisme s'est produit à {location}. Magnitude {magnitude}, Intensité maximale {intensity}. Profondeur: {depth}km. {tsunami_info}",
+            "de": "[Erdbeben] Ein Erdbeben ereignete sich in {location}. Magnitude {magnitude}, Maximale Intensität {intensity}. Tiefe: {depth}km. {tsunami_info}",
+            "it": "[Terremoto] Si è verificato un terremoto a {location}. Magnitudo {magnitude}, Intensità massima {intensity}. Profondità: {depth}km. {tsunami_info}",
+            "es": "[Terremoto] Ocurrió un terremoto en {location}. Magnitud {magnitude}, Intensidad máxima {intensity}. Profundidad: {depth}km. {tsunami_info}",
+            "ne": "[भूकम्प] {location} मा भूकम्प आयो। म्याग्निच्युड {magnitude}, अधिकतम तीव्रता {intensity}। गहिराई: {depth} किमी। {tsunami_info}",
+            "easy_ja": "【じしん】{location}で じしんが ありました。つよさは {intensity} です。ふかさは {depth}キロメートル。{tsunami_info}",
+        }
+
+        # 津波情報のテンプレート（15言語対応）
+        tsunami_templates = {
+            "en": {"safe": "There is no tsunami risk from this earthquake.", "warning": "Tsunami information: {warning}."},
+            "zh": {"safe": "此次地震没有海啸风险。", "warning": "海啸信息：{warning}。"},
+            "zh-TW": {"safe": "此次地震沒有海嘯風險。", "warning": "海嘯資訊：{warning}。"},
+            "ko": {"safe": "이 지진으로 인한 쓰나미 위험은 없습니다.", "warning": "쓰나미 정보: {warning}."},
+            "vi": {"safe": "Không có nguy cơ sóng thần từ trận động đất này.", "warning": "Thông tin sóng thần: {warning}."},
+            "th": {"safe": "ไม่มีความเสี่ยงจากสึนามิจากแผ่นดินไหวครั้งนี้", "warning": "ข้อมูลสึนามิ: {warning}"},
+            "id": {"safe": "Tidak ada risiko tsunami dari gempa ini.", "warning": "Informasi tsunami: {warning}."},
+            "ms": {"safe": "Tiada risiko tsunami daripada gempa bumi ini.", "warning": "Maklumat tsunami: {warning}."},
+            "tl": {"safe": "Walang panganib ng tsunami mula sa lindol na ito.", "warning": "Impormasyon tungkol sa tsunami: {warning}."},
+            "fr": {"safe": "Il n'y a pas de risque de tsunami suite à ce séisme.", "warning": "Information tsunami: {warning}."},
+            "de": {"safe": "Es besteht keine Tsunami-Gefahr durch dieses Erdbeben.", "warning": "Tsunami-Information: {warning}."},
+            "it": {"safe": "Non c'è rischio di tsunami da questo terremoto.", "warning": "Informazioni tsunami: {warning}."},
+            "es": {"safe": "No hay riesgo de tsunami por este terremoto.", "warning": "Información de tsunami: {warning}."},
+            "ne": {"safe": "यस भूकम्पबाट सुनामीको जोखिम छैन।", "warning": "सुनामी जानकारी: {warning}।"},
+            "easy_ja": {"safe": "この じしんで つなみの しんぱいは ありません。", "warning": "つなみ じょうほう: {warning}。"},
+        }
+
+        template = templates.get(lang, templates["en"])
+        tsunami_template = tsunami_templates.get(lang, tsunami_templates["en"])
+
+        # 津波情報の生成
+        if tsunami_warning in ["なし", "None"]:
+            tsunami_info = tsunami_template["safe"]
+        else:
+            tsunami_info = tsunami_template["warning"].format(warning=tsunami_warning_translated)
+
+        return template.format(
+            location=location,
+            magnitude=magnitude,
+            intensity=intensity,
+            depth=depth,
+            tsunami_info=tsunami_info
+        )
+
     def get_supported_languages(self) -> dict:
         """
         サポートする言語一覧を取得

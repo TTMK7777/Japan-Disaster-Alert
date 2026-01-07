@@ -21,6 +21,7 @@ def handle_errors(func: Callable) -> Callable:
     エラーハンドリングデコレータ
     
     エンドポイント関数に適用することで、統一されたエラーハンドリングを提供します。
+    非同期関数と同期関数の両方に対応します。
     
     Usage:
         @app.get("/api/v1/example")
@@ -29,18 +30,16 @@ def handle_errors(func: Callable) -> Callable:
             # 処理
             pass
     """
-    @wraps(func)
-    async def wrapper(*args: Any, **kwargs: Any) -> Any:
-        try:
-            return await func(*args, **kwargs)
-        except HTTPException:
-            # FastAPIのHTTPExceptionはそのまま再発生
+    import inspect
+    
+    def _handle_exception(e: Exception) -> None:
+        """例外を処理してHTTPExceptionを発生させる"""
+        is_production = settings.environment == "production"
+        
+        if isinstance(e, HTTPException):
             raise
-        except DisasterAlertError as e:
-            # カスタム例外は適切に処理
-            is_production = settings.environment == "production"
+        elif isinstance(e, DisasterAlertError):
             logger.error(f"カスタムエラー発生: {str(e)}", exc_info=True)
-            
             if isinstance(e, APIError):
                 raise HTTPException(
                     status_code=e.status_code,
@@ -51,15 +50,29 @@ def handle_errors(func: Callable) -> Callable:
                     status_code=500,
                     detail=str(e) if not is_production else "内部サーバーエラーが発生しました"
                 )
-        except Exception as e:
-            # その他の例外
-            is_production = settings.environment == "production"
+        else:
             logger.error(f"エラー発生: {str(e)}", exc_info=True)
-            
             raise HTTPException(
                 status_code=500,
                 detail=str(e) if not is_production else "内部サーバーエラーが発生しました"
             )
     
-    return wrapper
+    if inspect.iscoroutinefunction(func):
+        # 非同期関数の場合
+        @wraps(func)
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+            try:
+                return await func(*args, **kwargs)
+            except Exception as e:
+                _handle_exception(e)
+        return async_wrapper
+    else:
+        # 同期関数の場合
+        @wraps(func)
+        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
+            try:
+                return func(*args, **kwargs)
+            except Exception as e:
+                _handle_exception(e)
+        return sync_wrapper
 

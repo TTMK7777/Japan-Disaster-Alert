@@ -64,7 +64,11 @@ app = FastAPI(
 # CORS設定（環境変数で制御）
 # 本番環境では環境変数 ALLOWED_ORIGINS で許可オリジンを指定すること
 # 例: ALLOWED_ORIGINS=http://localhost:3000,https://example.com
-ALLOWED_ORIGINS = settings.allowed_origins.split(",")
+ALLOWED_ORIGINS = [
+    origin.strip() 
+    for origin in settings.allowed_origins.split(",") 
+    if origin.strip()  # 空文字列を除外
+]
 
 app.add_middleware(
     CORSMiddleware,
@@ -130,86 +134,18 @@ async def get_earthquakes(limit: int = 10, lang: str = "ja"):
             eq.tsunami_warning_translated = translator.translate_tsunami_warning(
                 eq.tsunami_warning, target_lang=lang
             )
-            # メッセージ生成（テンプレートを使用）
-            eq.message_translated = _generate_translated_message(
-                eq, lang, eq.location_translated, eq.tsunami_warning_translated
+            # メッセージ生成（translator.pyのメソッドを使用）
+            eq.message_translated = translator.generate_earthquake_message(
+                lang=lang,
+                location=eq.location_translated,
+                magnitude=eq.magnitude,
+                intensity=eq.max_intensity,
+                depth=eq.depth,
+                tsunami_warning=eq.tsunami_warning,
+                tsunami_warning_translated=eq.tsunami_warning_translated
             )
 
     return earthquakes
-
-
-def _generate_translated_message(
-    eq: EarthquakeInfo,
-    lang: str,
-    location_translated: str,
-    tsunami_translated: str
-) -> str:
-    """
-    地震情報メッセージを多言語で生成
-
-    Args:
-        eq: 地震情報
-        lang: 言語コード
-        location_translated: 翻訳済み震源地名
-        tsunami_translated: 翻訳済み津波情報
-
-    Returns:
-        str: 翻訳されたメッセージ
-    """
-    # 各言語のテンプレート（15言語対応）
-    templates = {
-        "en": "[Earthquake] An earthquake occurred in {location}. Magnitude {magnitude}, Maximum intensity {intensity}. Depth: {depth}km. {tsunami_info}",
-        "zh": "【地震信息】{location}发生地震。震级{magnitude}，最大震度{intensity}。震源深度约{depth}公里。{tsunami_info}",
-        "zh-TW": "【地震資訊】{location}發生地震。規模{magnitude}，最大震度{intensity}。震源深度約{depth}公里。{tsunami_info}",
-        "ko": "【지진정보】{location}에서 지진이 발생했습니다. 규모 {magnitude}, 최대진도 {intensity}. 진원 깊이 약 {depth}km. {tsunami_info}",
-        "vi": "[Động đất] Động đất xảy ra tại {location}. Cường độ {magnitude}, Cường độ tối đa {intensity}. Độ sâu: {depth}km. {tsunami_info}",
-        "th": "[แผ่นดินไหว] เกิดแผ่นดินไหวที่ {location} ขนาด {magnitude} ความรุนแรงสูงสุด {intensity} ความลึก: {depth} กม. {tsunami_info}",
-        "id": "[Gempa] Gempa bumi terjadi di {location}. Magnitudo {magnitude}, Intensitas maksimum {intensity}. Kedalaman: {depth}km. {tsunami_info}",
-        "ms": "[Gempa Bumi] Gempa bumi berlaku di {location}. Magnitud {magnitude}, Keamatan maksimum {intensity}. Kedalaman: {depth}km. {tsunami_info}",
-        "tl": "[Lindol] Nagkaroon ng lindol sa {location}. Magnitude {magnitude}, Pinakamataas na intensity {intensity}. Lalim: {depth}km. {tsunami_info}",
-        "fr": "[Séisme] Un séisme s'est produit à {location}. Magnitude {magnitude}, Intensité maximale {intensity}. Profondeur: {depth}km. {tsunami_info}",
-        "de": "[Erdbeben] Ein Erdbeben ereignete sich in {location}. Magnitude {magnitude}, Maximale Intensität {intensity}. Tiefe: {depth}km. {tsunami_info}",
-        "it": "[Terremoto] Si è verificato un terremoto a {location}. Magnitudo {magnitude}, Intensità massima {intensity}. Profondità: {depth}km. {tsunami_info}",
-        "es": "[Terremoto] Ocurrió un terremoto en {location}. Magnitud {magnitude}, Intensidad máxima {intensity}. Profundidad: {depth}km. {tsunami_info}",
-        "ne": "[भूकम्प] {location} मा भूकम्प आयो। म्याग्निच्युड {magnitude}, अधिकतम तीव्रता {intensity}। गहिराई: {depth} किमी। {tsunami_info}",
-        "easy_ja": "【じしん】{location}で じしんが ありました。つよさは {intensity} です。ふかさは {depth}キロメートル。{tsunami_info}",
-    }
-
-    # 津波情報のテンプレート（15言語対応）
-    tsunami_templates = {
-        "en": {"safe": "There is no tsunami risk from this earthquake.", "warning": "Tsunami information: {warning}."},
-        "zh": {"safe": "此次地震没有海啸风险。", "warning": "海啸信息：{warning}。"},
-        "zh-TW": {"safe": "此次地震沒有海嘯風險。", "warning": "海嘯資訊：{warning}。"},
-        "ko": {"safe": "이 지진으로 인한 쓰나미 위험은 없습니다.", "warning": "쓰나미 정보: {warning}."},
-        "vi": {"safe": "Không có nguy cơ sóng thần từ trận động đất này.", "warning": "Thông tin sóng thần: {warning}."},
-        "th": {"safe": "ไม่มีความเสี่ยงจากสึนามิจากแผ่นดินไหวครั้งนี้", "warning": "ข้อมูลสึนามิ: {warning}"},
-        "id": {"safe": "Tidak ada risiko tsunami dari gempa ini.", "warning": "Informasi tsunami: {warning}."},
-        "ms": {"safe": "Tiada risiko tsunami daripada gempa bumi ini.", "warning": "Maklumat tsunami: {warning}."},
-        "tl": {"safe": "Walang panganib ng tsunami mula sa lindol na ito.", "warning": "Impormasyon tungkol sa tsunami: {warning}."},
-        "fr": {"safe": "Il n'y a pas de risque de tsunami suite à ce séisme.", "warning": "Information tsunami: {warning}."},
-        "de": {"safe": "Es besteht keine Tsunami-Gefahr durch dieses Erdbeben.", "warning": "Tsunami-Information: {warning}."},
-        "it": {"safe": "Non c'è rischio di tsunami da questo terremoto.", "warning": "Informazioni tsunami: {warning}."},
-        "es": {"safe": "No hay riesgo de tsunami por este terremoto.", "warning": "Información de tsunami: {warning}."},
-        "ne": {"safe": "यस भूकम्पबाट सुनामीको जोखिम छैन।", "warning": "सुनामी जानकारी: {warning}।"},
-        "easy_ja": {"safe": "この じしんで つなみの しんぱいは ありません。", "warning": "つなみ じょうほう: {warning}。"},
-    }
-
-    template = templates.get(lang, templates["en"])
-    tsunami_template = tsunami_templates.get(lang, tsunami_templates["en"])
-
-    # 津波情報の生成
-    if eq.tsunami_warning in ["なし", "None"]:
-        tsunami_info = tsunami_template["safe"]
-    else:
-        tsunami_info = tsunami_template["warning"].format(warning=tsunami_translated)
-
-    return template.format(
-        location=location_translated,
-        magnitude=eq.magnitude,
-        intensity=eq.max_intensity,
-        depth=eq.depth,
-        tsunami_info=tsunami_info
-    )
 
 
 @app.get("/api/v1/weather/{area_code}", response_model=WeatherInfo)

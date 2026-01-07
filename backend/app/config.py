@@ -14,11 +14,11 @@ class Settings(BaseSettings):
     """アプリケーション設定"""
     
     # 環境設定
-    environment: str = os.getenv("ENVIRONMENT", "development")
-    log_level: str = os.getenv("LOG_LEVEL", "INFO")
+    environment: str = "development"
+    log_level: str = "INFO"
     
     # API設定
-    api_timeout: float = float(os.getenv("API_TIMEOUT", "10.0"))
+    api_timeout: float = 10.0
     
     # 気象庁API
     jma_base_url: str = "https://www.jma.go.jp/bosai"
@@ -27,23 +27,20 @@ class Settings(BaseSettings):
     p2p_base_url: str = "https://api.p2pquake.net/v2"
     
     # Claude API
-    anthropic_api_key: Optional[str] = os.getenv("ANTHROPIC_API_KEY")
+    anthropic_api_key: Optional[str] = None
     anthropic_api_version: str = "2023-06-01"
     anthropic_model: str = "claude-3-haiku-20240307"
 
     # Gemini API
-    gemini_api_key: Optional[str] = os.getenv("GEMINI_API_KEY")
-    gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-2.0-flash-exp")
+    gemini_api_key: Optional[str] = None
+    gemini_model: str = "gemini-2.0-flash-exp"
 
     # 使用するAIプロバイダー（claude, gemini, auto）
     # auto: Gemini優先、なければClaude
-    ai_provider: str = os.getenv("AI_PROVIDER", "auto")
+    ai_provider: str = "auto"
     
     # CORS設定
-    allowed_origins: str = os.getenv(
-        "ALLOWED_ORIGINS",
-        "http://localhost:3000,http://localhost:3001,http://localhost:8000"
-    )
+    allowed_origins: str = "http://localhost:3000,http://localhost:3001,http://localhost:8000"
     
     # キャッシュ設定
     cache_dir: Path = Path(__file__).parent.parent / "data"
@@ -51,11 +48,15 @@ class Settings(BaseSettings):
     shelter_data_dir: Path = Path(__file__).parent.parent / "data" / "shelters"
     
     # サーバー設定
-    host: str = os.getenv("HOST", "0.0.0.0")
-    port: int = int(os.getenv("PORT", "8000"))
-    reload: bool = os.getenv("ENVIRONMENT") != "production"
+    host: str = "0.0.0.0"
+    port: int = 8000
     timeout_keep_alive: int = 30
     limit_concurrency: int = 100
+    
+    @property
+    def reload(self) -> bool:
+        """開発環境でのみリロードを有効化"""
+        return self.environment != "production"
     
     class Config:
         env_file = ".env"
