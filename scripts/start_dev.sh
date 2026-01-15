@@ -1,6 +1,10 @@
 #!/bin/bash
 # 開発環境起動スクリプト
 
+# nvm を読み込み（非インタラクティブシェルでも動作するように）
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 echo "==================================="
