@@ -160,4 +160,4 @@ MIT License
 
 ---
 
-**開発**: AI開発チーム（Claude Code + Perplexity + Gemini）
+**開発**: Taimu Tsuji
