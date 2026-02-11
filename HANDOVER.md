@@ -1,6 +1,51 @@
 # Japan-Disaster-Alert 引継ぎ資料
 
-## 最終更新: 2025-12-16
+## 最終更新: 2026-02-11
+
+---
+
+## セッション: 2026-02-11
+
+### 作業サマリー
+| 項目 | 内容 |
+|------|------|
+| **作業内容** | セキュリティ強化・16言語対応バグ修正・コード整理 |
+| **変更ファイル** | backend 4ファイル + frontend 10ファイル（新規4 + 修正6） |
+| **テスト** | TypeScript ビルド検証済み(`tsc --noEmit`)、コード検証済み |
+| **ステータス** | 完了 |
+| **コミット** | `6699aea` |
+| **手法** | Agent Teams（backend-dev + frontend-dev 2人並列） |
+
+### 変更詳細
+
+#### Backend（セキュリティ + 信頼性）
+- **レート制限追加** (slowapi): 一般60/翻訳20/安全ガイド10 per min、ヘルスチェック系exempt
+- **リクエストサイズ制限**: ContentSizeLimitMiddleware(1MB)、翻訳テキスト5000文字制限
+- **AIタイムアウト統一**: 翻訳15s/生成30s、httpx.Timeout オブジェクトで6箇所統一
+- **震度翻訳フィールド**: INTENSITY_TRANSLATIONS(10震度×16言語)、JMA公式表記準拠
+- **JSONパース堅牢化**: _extract_json() 3段階ヘルパー（直接→コードブロック→ブレース抽出）
+
+#### Frontend（バグ修正 + UI/UX + 保守性）
+- **言語セレクター16言語化**: 7→16言語（zh-TW, th, id, ms, tl, fr, de, it, es 追加）
+- **errorMessages補完**: ErrorBoundary + ページレベルの両方を16言語化
+- **翻訳外部化**: `src/i18n/` 新設、page.tsx 667→346行に削減
+- **共有型統一**: `src/types/earthquake.ts`(3箇所)、`src/config/api.ts`(4箇所) で重複排除
+- **HTML lang属性**: useEffect で言語切替時に動的更新
+
+### 新規ファイル
+| ファイル | 説明 |
+|---------|------|
+| `frontend/src/i18n/types.ts` | SupportedLanguage型、LanguageOptionインターフェース |
+| `frontend/src/i18n/translations.ts` | translations, errorMessages, LANGUAGES |
+| `frontend/src/types/earthquake.ts` | 共有Earthquakeインターフェース |
+| `frontend/src/config/api.ts` | 共有API_BASE_URL |
+
+### 次回やること / 残課題
+- 手動動作確認（16言語セレクター表示、レート制限429確認、震度翻訳確認）
+- マルチワーカー化時はレート制限をRedisバックエンドに移行
+- 既存の高優先TODOは下記セクション参照
+
+---
 
 ## プロジェクト概要
 日本の災害情報（地震、津波、天気）を16言語で提供するリアルタイム防災アプリケーション

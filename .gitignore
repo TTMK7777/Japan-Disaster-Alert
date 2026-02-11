@@ -43,6 +43,7 @@ yarn-error.log*
 # Next.js
 .next/
 out/
+*.tsbuildinfo
 
 # Environment variables (IMPORTANT: Contains API keys)
 .env
