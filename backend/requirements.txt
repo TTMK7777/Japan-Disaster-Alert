@@ -7,6 +7,9 @@ pydantic-settings==2.6.1
 # HTTPクライアント
 httpx==0.28.1
 
+# レート制限
+slowapi==0.1.9
+
 # 環境変数管理
 python-dotenv==1.0.1
 

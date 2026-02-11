@@ -5,8 +5,14 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 from datetime import datetime
 from typing import Optional
+
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.util import get_remote_address
 
 from .config import settings
 from .utils.logger import get_logger
@@ -54,12 +60,21 @@ async def lifespan(app: FastAPI):
     logger.info("災害対応AIシステム終了")
 
 
+# レート制限（インメモリストレージ、単一プロセス用）
+limiter = Limiter(key_func=get_remote_address)
+
 app = FastAPI(
     title="災害対応AIエージェントAPI",
     description="多言語対応の災害情報提供システム",
     version="1.0.0",
     lifespan=lifespan
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# SlowAPIミドルウェア（CORSより前に記述 = 内側で実行、OPTIONSプリフライトが429にならない）
+app.add_middleware(SlowAPIMiddleware)
 
 # CORS設定（環境変数で制御）
 # 本番環境では環境変数 ALLOWED_ORIGINS で許可オリジンを指定すること
@@ -101,7 +116,24 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 app.add_middleware(SecurityHeadersMiddleware)
 
 
+# リクエストサイズ制限ミドルウェア
+class ContentSizeLimitMiddleware(BaseHTTPMiddleware):
+    """リクエストボディのサイズを制限するミドルウェア"""
+
+    async def dispatch(self, request: Request, call_next):
+        content_length = request.headers.get("content-length")
+        if content_length and int(content_length) > settings.max_content_size:
+            return Response(
+                content="Request body too large",
+                status_code=413,
+            )
+        return await call_next(request)
+
+app.add_middleware(ContentSizeLimitMiddleware)
+
+
 @app.get("/", response_model=HealthResponse)
+@limiter.exempt
 async def root():
     """ヘルスチェック"""
     return HealthResponse(
@@ -114,7 +146,8 @@ async def root():
 
 @app.get("/api/v1/earthquakes", response_model=list[EarthquakeInfo])
 @handle_errors
-async def get_earthquakes(limit: int = 10, lang: str = "ja"):
+@limiter.limit(settings.rate_limit_general)
+async def get_earthquakes(request: Request, limit: int = 10, lang: str = "ja"):
     """
     最新の地震情報を取得
 
@@ -129,6 +162,10 @@ async def get_earthquakes(limit: int = 10, lang: str = "ja"):
             # 震源地名翻訳（静的マッピング → Claude API → キャッシュ）
             eq.location_translated = await translator.translate_location(
                 eq.location, target_lang=lang
+            )
+            # 震度翻訳（静的マッピング）
+            eq.max_intensity_translated = translator.translate_intensity(
+                eq.max_intensity, target_lang=lang
             )
             # 津波警報翻訳（静的マッピング）
             eq.tsunami_warning_translated = translator.translate_tsunami_warning(
@@ -150,7 +187,8 @@ async def get_earthquakes(limit: int = 10, lang: str = "ja"):
 
 @app.get("/api/v1/weather/{area_code}", response_model=WeatherInfo)
 @handle_errors
-async def get_weather(area_code: str, lang: str = "ja"):
+@limiter.limit(settings.rate_limit_general)
+async def get_weather(request: Request, area_code: str, lang: str = "ja"):
     """
     指定地域の天気情報を取得
 
@@ -170,7 +208,8 @@ async def get_weather(area_code: str, lang: str = "ja"):
 
 @app.get("/api/v1/alerts", response_model=list[DisasterAlert])
 @handle_errors
-async def get_alerts(area_code: str = "130000", lang: str = "ja"):
+@limiter.limit(settings.rate_limit_general)
+async def get_alerts(request: Request, area_code: str = "130000", lang: str = "ja"):
     """
     現在発令中の警報・注意報を取得
 
@@ -184,7 +223,8 @@ async def get_alerts(area_code: str = "130000", lang: str = "ja"):
 
 @app.get("/api/v1/warnings/special", response_model=list[DisasterAlert])
 @handle_errors
-async def get_special_warnings(lang: str = "ja"):
+@limiter.limit(settings.rate_limit_general)
+async def get_special_warnings(request: Request, lang: str = "ja"):
     """
     全国の特別警報を取得
 
@@ -206,13 +246,19 @@ async def get_special_warnings(lang: str = "ja"):
 
 @app.post("/api/v1/translate", response_model=TranslatedMessage)
 @handle_errors
-async def translate_message(text: str, target_lang: str = "en"):
+@limiter.limit(settings.rate_limit_translate)
+async def translate_message(request: Request, text: str, target_lang: str = "en"):
     """
     テキストを指定言語に翻訳
 
-    - **text**: 翻訳するテキスト
+    - **text**: 翻訳するテキスト（最大5000文字）
     - **target_lang**: 翻訳先言語コード
     """
+    if len(text) > settings.max_translate_text_length:
+        raise HTTPException(
+            status_code=400,
+            detail=f"テキストが長すぎます。最大{settings.max_translate_text_length}文字です。"
+        )
     translated = await translator.translate(text, target_lang)
     return TranslatedMessage(
         original=text,
@@ -224,7 +270,9 @@ async def translate_message(text: str, target_lang: str = "en"):
 
 @app.get("/api/v1/shelters", response_model=list[ShelterInfo])
 @handle_errors
+@limiter.limit(settings.rate_limit_general)
 async def get_nearby_shelters(
+    request: Request,
     lat: float,
     lon: float,
     radius: float = 5.0,
@@ -261,6 +309,7 @@ async def get_nearby_shelters(
 
 
 @app.get("/api/v1/shelters/types")
+@limiter.exempt
 async def get_shelter_disaster_types():
     """対応している災害種別一覧を取得"""
     return shelter_service.get_disaster_types()
@@ -268,7 +317,8 @@ async def get_shelter_disaster_types():
 
 @app.get("/api/v1/tsunami", response_model=list[TsunamiInfo])
 @handle_errors
-async def get_tsunami_info(limit: int = 10, lang: str = "ja"):
+@limiter.limit(settings.rate_limit_general)
+async def get_tsunami_info(request: Request, limit: int = 10, lang: str = "ja"):
     """
     津波情報を取得
 
@@ -289,7 +339,8 @@ async def get_tsunami_info(limit: int = 10, lang: str = "ja"):
 
 @app.get("/api/v1/tsunami/active", response_model=list[TsunamiInfo])
 @handle_errors
-async def get_active_tsunami_warnings(lang: str = "ja"):
+@limiter.limit(settings.rate_limit_general)
+async def get_active_tsunami_warnings(request: Request, lang: str = "ja"):
     """
     現在発令中の津波警報・注意報を取得
 
@@ -308,7 +359,8 @@ async def get_active_tsunami_warnings(lang: str = "ja"):
 
 @app.get("/api/v1/volcanoes", response_model=list[VolcanoInfo])
 @handle_errors
-async def get_volcanoes(monitored_only: bool = True):
+@limiter.limit(settings.rate_limit_general)
+async def get_volcanoes(request: Request, monitored_only: bool = True):
     """
     火山情報を取得
 
@@ -322,7 +374,8 @@ async def get_volcanoes(monitored_only: bool = True):
 
 @app.get("/api/v1/volcanoes/warnings")
 @handle_errors
-async def get_volcano_warnings(lang: str = "ja"):
+@limiter.limit(settings.rate_limit_general)
+async def get_volcano_warnings(request: Request, lang: str = "ja"):
     """
     火山警報を取得
 
@@ -334,7 +387,8 @@ async def get_volcano_warnings(lang: str = "ja"):
 
 @app.get("/api/v1/volcanoes/{volcano_code}", response_model=VolcanoInfo)
 @handle_errors
-async def get_volcano_by_code(volcano_code: int):
+@limiter.limit(settings.rate_limit_general)
+async def get_volcano_by_code(request: Request, volcano_code: int):
     """
     特定の火山情報を取得
 
@@ -368,6 +422,7 @@ SUPPORTED_LANGUAGES = {
 
 
 @app.get("/api/v1/languages")
+@limiter.exempt
 async def get_supported_languages():
     """対応言語一覧を取得"""
     return SUPPORTED_LANGUAGES
@@ -386,7 +441,9 @@ SUPPORTED_DISASTER_TYPES = {
 
 @app.get("/api/v1/safety-guide", response_model=SafetyGuide)
 @handle_errors
+@limiter.limit(settings.rate_limit_safety_guide)
 async def get_safety_guide(
+    request: Request,
     disaster_type: str,
     lang: str = "ja",
     location: Optional[str] = None,
@@ -460,6 +517,7 @@ async def get_safety_guide(
 
 
 @app.get("/api/v1/safety-guide/types")
+@limiter.exempt
 async def get_disaster_types():
     """対応災害種別一覧を取得"""
     return SUPPORTED_DISASTER_TYPES

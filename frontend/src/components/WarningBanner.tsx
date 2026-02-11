@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { API_BASE_URL } from '@/config/api';
 
 interface Warning {
   id: string;
@@ -19,8 +20,6 @@ interface WarningBannerProps {
   language?: string;
   onWarningsUpdate?: (warnings: Warning[]) => void;
 }
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 // 都道府県コードと名前のマッピング
 const PREFECTURES: { code: string; ja: string; en: string }[] = [

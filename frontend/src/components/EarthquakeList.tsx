@@ -1,30 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-
-interface Earthquake {
-  id: string;
-  time: string;
-  location: string;
-  location_translated?: string;
-  magnitude: number;
-  max_intensity: string;
-  max_intensity_translated?: string;
-  depth: number;
-  latitude: number;
-  longitude: number;
-  tsunami_warning: string;
-  tsunami_warning_translated?: string;
-  message: string;
-  message_translated?: string;
-}
+import type { Earthquake } from '@/types/earthquake';
+import { API_BASE_URL } from '@/config/api';
 
 interface EarthquakeListProps {
   language: string;
 }
-
-// バックエンドAPIのベースURL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 // 震度に応じた色クラスを返す
 function getIntensityClass(intensity: string): string {

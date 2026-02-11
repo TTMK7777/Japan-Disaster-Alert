@@ -8,6 +8,7 @@ import EmergencyAlert from '@/components/EmergencyAlert';
 import WarningBanner from '@/components/WarningBanner';
 import EmergencyContacts from '@/components/EmergencyContacts';
 import { EarthquakeIcon, ShelterIcon } from '@/components/icons/DisasterIcons';
+import { translations, errorMessages, boundaryErrorMessages } from '@/i18n/translations';
 
 // Error Boundary コンポーネント
 interface ErrorBoundaryState {
@@ -33,12 +34,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 
   render() {
     if (this.state.hasError) {
-      const errorMessages: Record<string, { title: string; message: string; retry: string }> = {
-        ja: { title: 'エラーが発生しました', message: 'データの読み込みに失敗しました。', retry: '再読み込み' },
-        en: { title: 'An error occurred', message: 'Failed to load data.', retry: 'Reload' },
-        easy_ja: { title: 'エラー', message: 'よみこみが できませんでした。', retry: 'もういちど' },
-      };
-      const msg = errorMessages[this.props.language] || errorMessages.en;
+      const msg = boundaryErrorMessages[this.props.language] || boundaryErrorMessages.en;
 
       return (
         this.props.fallback || (
@@ -80,302 +76,8 @@ const ShelterMap = dynamic(() => import('@/components/ShelterMap'), {
   ),
 });
 
-// 多言語テキスト（拡充版：16言語対応）
-const translations: Record<string, Record<string, string>> = {
-  ja: {
-    title: '災害対応AI',
-    subtitle: '多言語災害情報システム',
-    earthquake: '地震',
-    warning: '警報',
-    emergency: '緊急連絡',
-    shelter: '避難所',
-    settings: '設定',
-    loading: '読み込み中...',
-    noData: 'データがありません',
-    lastUpdate: '最終更新',
-    listView: 'リスト',
-    mapView: '地図',
-    safetyTips: '安全のヒント',
-    dataSource: '情報元: 気象庁、P2P地震情報',
-    disclaimer: '※この情報は参考情報です。正確な情報は公式発表をご確認ください。',
-  },
-  en: {
-    title: 'Disaster AI',
-    subtitle: 'Multilingual Disaster Info',
-    earthquake: 'Quakes',
-    warning: 'Alerts',
-    emergency: 'SOS',
-    shelter: 'Shelters',
-    settings: 'Settings',
-    loading: 'Loading...',
-    noData: 'No data available',
-    lastUpdate: 'Last update',
-    listView: 'List',
-    mapView: 'Map',
-    safetyTips: 'Safety Tips',
-    dataSource: 'Data: JMA, P2P Earthquake',
-    disclaimer: '* This is reference info. Check official sources for accuracy.',
-  },
-  zh: {
-    title: '灾害应对AI',
-    subtitle: '多语言灾害信息系统',
-    earthquake: '地震信息',
-    warning: '警报',
-    emergency: '紧急电话',
-    shelter: '避难所',
-    settings: '设置',
-    loading: '加载中...',
-    noData: '暂无数据',
-    lastUpdate: '最后更新',
-    listView: '列表',
-    mapView: '地图',
-    safetyTips: '安全提示',
-    dataSource: '数据来源：气象厅、P2P地震情报',
-    disclaimer: '※此为参考信息。请以官方发布为准。',
-  },
-  'zh-TW': {
-    title: '災害應對AI',
-    subtitle: '多語言災害資訊系統',
-    earthquake: '地震資訊',
-    warning: '警報',
-    emergency: '緊急電話',
-    shelter: '避難所',
-    settings: '設定',
-    loading: '載入中...',
-    noData: '暫無資料',
-    lastUpdate: '最後更新',
-    listView: '列表',
-    mapView: '地圖',
-    safetyTips: '安全提示',
-    dataSource: '資料來源：氣象廳、P2P地震情報',
-    disclaimer: '※此為參考資訊。請以官方發布為準。',
-  },
-  ko: {
-    title: '재난대응AI',
-    subtitle: '다국어 재난 정보 시스템',
-    earthquake: '지진 정보',
-    warning: '경보',
-    emergency: '긴급전화',
-    shelter: '대피소',
-    settings: '설정',
-    loading: '로딩 중...',
-    noData: '데이터가 없습니다',
-    lastUpdate: '마지막 업데이트',
-    listView: '목록',
-    mapView: '지도',
-    safetyTips: '안전 팁',
-    dataSource: '데이터: 기상청, P2P 지진정보',
-    disclaimer: '※ 이것은 참고 정보입니다. 정확한 정보는 공식 발표를 확인하세요.',
-  },
-  vi: {
-    title: 'AI Ứng phó Thiên tai',
-    subtitle: 'Hệ thống thông tin đa ngôn ngữ',
-    earthquake: 'Động đất',
-    warning: 'Cảnh báo',
-    emergency: 'Khẩn cấp',
-    shelter: 'Nơi trú ẩn',
-    settings: 'Cài đặt',
-    loading: 'Đang tải...',
-    noData: 'Không có dữ liệu',
-    lastUpdate: 'Cập nhật lần cuối',
-    listView: 'Danh sách',
-    mapView: 'Bản đồ',
-    safetyTips: 'Mẹo an toàn',
-    dataSource: 'Nguồn: JMA, P2P Earthquake',
-    disclaimer: '※ Đây là thông tin tham khảo. Hãy kiểm tra nguồn chính thức.',
-  },
-  th: {
-    title: 'AI รับมือภัยพิบัติ',
-    subtitle: 'ระบบข้อมูลภัยพิบัติหลายภาษา',
-    earthquake: 'แผ่นดินไหว',
-    warning: 'คำเตือน',
-    emergency: 'ฉุกเฉิน',
-    shelter: 'ที่พักพิง',
-    settings: 'ตั้งค่า',
-    loading: 'กำลังโหลด...',
-    noData: 'ไม่มีข้อมูล',
-    lastUpdate: 'อัปเดตล่าสุด',
-    listView: 'รายการ',
-    mapView: 'แผนที่',
-    safetyTips: 'เคล็ดลับความปลอดภัย',
-    dataSource: 'ข้อมูล: JMA, P2P Earthquake',
-    disclaimer: '※ นี่คือข้อมูลอ้างอิง โปรดตรวจสอบแหล่งข้อมูลที่เป็นทางการ',
-  },
-  id: {
-    title: 'AI Bencana',
-    subtitle: 'Sistem Info Bencana Multibahasa',
-    earthquake: 'Gempa',
-    warning: 'Peringatan',
-    emergency: 'Darurat',
-    shelter: 'Tempat Pengungsian',
-    settings: 'Pengaturan',
-    loading: 'Memuat...',
-    noData: 'Tidak ada data',
-    lastUpdate: 'Update terakhir',
-    listView: 'Daftar',
-    mapView: 'Peta',
-    safetyTips: 'Tips Keselamatan',
-    dataSource: 'Sumber: JMA, P2P Earthquake',
-    disclaimer: '※ Ini adalah informasi referensi. Periksa sumber resmi.',
-  },
-  ms: {
-    title: 'AI Bencana',
-    subtitle: 'Sistem Maklumat Berbilang Bahasa',
-    earthquake: 'Gempa Bumi',
-    warning: 'Amaran',
-    emergency: 'Kecemasan',
-    shelter: 'Tempat Perlindungan',
-    settings: 'Tetapan',
-    loading: 'Memuatkan...',
-    noData: 'Tiada data',
-    lastUpdate: 'Kemas kini terakhir',
-    listView: 'Senarai',
-    mapView: 'Peta',
-    safetyTips: 'Petua Keselamatan',
-    dataSource: 'Sumber: JMA, P2P Earthquake',
-    disclaimer: '※ Ini adalah maklumat rujukan. Semak sumber rasmi.',
-  },
-  tl: {
-    title: 'AI Sakuna',
-    subtitle: 'Multi-Language na Impormasyon',
-    earthquake: 'Lindol',
-    warning: 'Babala',
-    emergency: 'Emergency',
-    shelter: 'Evacuation Center',
-    settings: 'Mga Setting',
-    loading: 'Naglo-load...',
-    noData: 'Walang data',
-    lastUpdate: 'Huling update',
-    listView: 'Listahan',
-    mapView: 'Mapa',
-    safetyTips: 'Mga Tips sa Kaligtasan',
-    dataSource: 'Pinagmulan: JMA, P2P Earthquake',
-    disclaimer: '※ Ito ay reference na impormasyon. I-check ang opisyal na pinagmulan.',
-  },
-  ne: {
-    title: 'विपद् प्रतिक्रिया AI',
-    subtitle: 'बहुभाषिक विपद् सूचना',
-    earthquake: 'भूकम्प',
-    warning: 'चेतावनी',
-    emergency: 'आपातकालीन',
-    shelter: 'आश्रय',
-    settings: 'सेटिङ',
-    loading: 'लोड हुँदैछ...',
-    noData: 'डाटा छैन',
-    lastUpdate: 'अन्तिम अद्यावधिक',
-    listView: 'सूची',
-    mapView: 'नक्सा',
-    safetyTips: 'सुरक्षा सुझावहरू',
-    dataSource: 'स्रोत: JMA, P2P भूकम्प',
-    disclaimer: '※ यो सन्दर्भ जानकारी हो। आधिकारिक स्रोत जाँच गर्नुहोस्।',
-  },
-  fr: {
-    title: 'IA Catastrophe',
-    subtitle: 'Système multilingue',
-    earthquake: 'Séismes',
-    warning: 'Alertes',
-    emergency: 'Urgence',
-    shelter: 'Abris',
-    settings: 'Paramètres',
-    loading: 'Chargement...',
-    noData: 'Pas de données',
-    lastUpdate: 'Dernière MAJ',
-    listView: 'Liste',
-    mapView: 'Carte',
-    safetyTips: 'Conseils de sécurité',
-    dataSource: 'Source: JMA, P2P Earthquake',
-    disclaimer: '※ Informations de référence. Vérifiez les sources officielles.',
-  },
-  de: {
-    title: 'Katastrophen-KI',
-    subtitle: 'Mehrsprachiges System',
-    earthquake: 'Erdbeben',
-    warning: 'Warnungen',
-    emergency: 'Notfall',
-    shelter: 'Notunterkünfte',
-    settings: 'Einstellungen',
-    loading: 'Laden...',
-    noData: 'Keine Daten',
-    lastUpdate: 'Letzte Aktualisierung',
-    listView: 'Liste',
-    mapView: 'Karte',
-    safetyTips: 'Sicherheitstipps',
-    dataSource: 'Quelle: JMA, P2P Earthquake',
-    disclaimer: '※ Dies sind Referenzinformationen. Offizielle Quellen prüfen.',
-  },
-  it: {
-    title: 'AI Disastri',
-    subtitle: 'Sistema multilingue',
-    earthquake: 'Terremoti',
-    warning: 'Allerte',
-    emergency: 'Emergenza',
-    shelter: 'Rifugi',
-    settings: 'Impostazioni',
-    loading: 'Caricamento...',
-    noData: 'Nessun dato',
-    lastUpdate: 'Ultimo aggiornamento',
-    listView: 'Lista',
-    mapView: 'Mappa',
-    safetyTips: 'Consigli di sicurezza',
-    dataSource: 'Fonte: JMA, P2P Earthquake',
-    disclaimer: '※ Informazioni di riferimento. Verificare le fonti ufficiali.',
-  },
-  es: {
-    title: 'IA Desastres',
-    subtitle: 'Sistema multilingüe',
-    earthquake: 'Terremotos',
-    warning: 'Alertas',
-    emergency: 'Emergencia',
-    shelter: 'Refugios',
-    settings: 'Configuración',
-    loading: 'Cargando...',
-    noData: 'Sin datos',
-    lastUpdate: 'Última actualización',
-    listView: 'Lista',
-    mapView: 'Mapa',
-    safetyTips: 'Consejos de seguridad',
-    dataSource: 'Fuente: JMA, P2P Earthquake',
-    disclaimer: '※ Información de referencia. Consulte fuentes oficiales.',
-  },
-  easy_ja: {
-    title: 'さいがい じょうほう',
-    subtitle: 'やさしい にほんご',
-    earthquake: 'じしん',
-    warning: 'けいほう',
-    emergency: 'きんきゅう',
-    shelter: 'ひなんじょ',
-    settings: 'せってい',
-    loading: 'よみこみちゅう...',
-    noData: 'データが ありません',
-    lastUpdate: 'さいしん',
-    listView: 'リスト',
-    mapView: 'ちず',
-    safetyTips: 'あんぜんの ヒント',
-    dataSource: 'じょうほうげん: きしょうちょう',
-    disclaimer: '※これは さんこう じょうほう です。こうしき はっぴょうを かくにん してください。',
-  },
-};
-
-// 地震データの型定義
-interface Earthquake {
-  id: string;
-  time: string;
-  location: string;
-  location_translated?: string;
-  magnitude: number;
-  max_intensity: string;
-  max_intensity_translated?: string;
-  depth: number;
-  latitude: number;
-  longitude: number;
-  tsunami_warning: string;
-  tsunami_warning_translated?: string;
-  message: string;
-  message_translated?: string;
-}
-
-// バックエンドAPIのベースURL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+import type { Earthquake } from '@/types/earthquake';
+import { API_BASE_URL } from '@/config/api';
 
 type TabType = 'earthquake' | 'warning' | 'emergency' | 'shelter';
 type EarthquakeViewType = 'list' | 'map';
@@ -410,34 +112,6 @@ interface ApiError {
   message: string;
   retryable: boolean;
 }
-
-// 多言語エラーメッセージ
-const errorMessages: Record<string, Record<string, string>> = {
-  networkError: {
-    ja: 'ネットワーク接続を確認してください',
-    en: 'Please check your network connection',
-    easy_ja: 'インターネットを かくにん してください',
-    zh: '请检查您的网络连接',
-    ko: '네트워크 연결을 확인하세요',
-    vi: 'Vui lòng kiểm tra kết nối mạng',
-  },
-  serverError: {
-    ja: 'サーバーに接続できません',
-    en: 'Cannot connect to server',
-    easy_ja: 'サーバーに つながりません',
-    zh: '无法连接到服务器',
-    ko: '서버에 연결할 수 없습니다',
-    vi: 'Không thể kết nối máy chủ',
-  },
-  retry: {
-    ja: '再試行',
-    en: 'Retry',
-    easy_ja: 'もういちど',
-    zh: '重试',
-    ko: '다시 시도',
-    vi: 'Thử lại',
-  },
-};
 
 export default function Home() {
   const [language, setLanguage] = useState('ja');
@@ -487,6 +161,10 @@ export default function Home() {
   useEffect(() => {
     fetchEarthquakes();
   }, [fetchEarthquakes, lastUpdate]);
+
+  useEffect(() => {
+    document.documentElement.lang = language;
+  }, [language]);
 
   useEffect(() => {
     // クライアントサイドでのみ実行

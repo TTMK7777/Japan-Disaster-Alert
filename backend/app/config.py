@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     
     # API設定
     api_timeout: float = 10.0
+    ai_timeout_translate: float = 15.0
+    ai_timeout_generate: float = 30.0
     
     # 気象庁API
     jma_base_url: str = "https://www.jma.go.jp/bosai"
@@ -39,6 +41,15 @@ class Settings(BaseSettings):
     # auto: Gemini優先、なければClaude
     ai_provider: str = "auto"
     
+    # レート制限設定
+    rate_limit_general: str = "60/minute"
+    rate_limit_translate: str = "20/minute"
+    rate_limit_safety_guide: str = "10/minute"
+
+    # リクエストサイズ制限
+    max_content_size: int = 1_048_576  # 1MB
+    max_translate_text_length: int = 5000  # 文字数
+
     # CORS設定
     allowed_origins: str = "http://localhost:3000,http://localhost:3001,http://localhost:8000"
     

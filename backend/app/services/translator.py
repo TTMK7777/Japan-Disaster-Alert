@@ -12,6 +12,8 @@ import json
 import hashlib
 from pathlib import Path
 
+import httpx
+
 from .location_translations import get_location_translation, LOCATION_TRANSLATIONS
 from ..utils.logger import get_logger
 
@@ -241,6 +243,70 @@ class TranslatorService:
         },
     }
 
+    # 震度翻訳（JMA震度階級、10震度 x 16言語）
+    INTENSITY_TRANSLATIONS = {
+        "0": {
+            "ja": "震度0", "en": "0", "zh": "0", "zh-TW": "0", "ko": "0",
+            "vi": "0", "th": "0", "id": "0", "ms": "0", "tl": "0",
+            "fr": "0", "de": "0", "it": "0", "es": "0", "ne": "0",
+            "easy_ja": "しんど 0",
+        },
+        "1": {
+            "ja": "震度1", "en": "1", "zh": "1", "zh-TW": "1", "ko": "1",
+            "vi": "1", "th": "1", "id": "1", "ms": "1", "tl": "1",
+            "fr": "1", "de": "1", "it": "1", "es": "1", "ne": "1",
+            "easy_ja": "しんど 1",
+        },
+        "2": {
+            "ja": "震度2", "en": "2", "zh": "2", "zh-TW": "2", "ko": "2",
+            "vi": "2", "th": "2", "id": "2", "ms": "2", "tl": "2",
+            "fr": "2", "de": "2", "it": "2", "es": "2", "ne": "2",
+            "easy_ja": "しんど 2",
+        },
+        "3": {
+            "ja": "震度3", "en": "3", "zh": "3", "zh-TW": "3", "ko": "3",
+            "vi": "3", "th": "3", "id": "3", "ms": "3", "tl": "3",
+            "fr": "3", "de": "3", "it": "3", "es": "3", "ne": "3",
+            "easy_ja": "しんど 3",
+        },
+        "4": {
+            "ja": "震度4", "en": "4", "zh": "4", "zh-TW": "4", "ko": "4",
+            "vi": "4", "th": "4", "id": "4", "ms": "4", "tl": "4",
+            "fr": "4", "de": "4", "it": "4", "es": "4", "ne": "4",
+            "easy_ja": "しんど 4",
+        },
+        "5弱": {
+            "ja": "震度5弱", "en": "5 Lower", "zh": "5弱", "zh-TW": "5弱", "ko": "5약",
+            "vi": "5 yếu", "th": "5 อ่อน", "id": "5 Lemah", "ms": "5 Lemah", "tl": "5 Mahina",
+            "fr": "5 Faible", "de": "5 Schwach", "it": "5 Debole", "es": "5 Inferior", "ne": "5 कमजोर",
+            "easy_ja": "しんど 5じゃく",
+        },
+        "5強": {
+            "ja": "震度5強", "en": "5 Upper", "zh": "5强", "zh-TW": "5強", "ko": "5강",
+            "vi": "5 mạnh", "th": "5 แรง", "id": "5 Kuat", "ms": "5 Kuat", "tl": "5 Malakas",
+            "fr": "5 Fort", "de": "5 Stark", "it": "5 Forte", "es": "5 Superior", "ne": "5 बलियो",
+            "easy_ja": "しんど 5きょう",
+        },
+        "6弱": {
+            "ja": "震度6弱", "en": "6 Lower", "zh": "6弱", "zh-TW": "6弱", "ko": "6약",
+            "vi": "6 yếu", "th": "6 อ่อน", "id": "6 Lemah", "ms": "6 Lemah", "tl": "6 Mahina",
+            "fr": "6 Faible", "de": "6 Schwach", "it": "6 Debole", "es": "6 Inferior", "ne": "6 कमजोर",
+            "easy_ja": "しんど 6じゃく",
+        },
+        "6強": {
+            "ja": "震度6強", "en": "6 Upper", "zh": "6强", "zh-TW": "6強", "ko": "6강",
+            "vi": "6 mạnh", "th": "6 แรง", "id": "6 Kuat", "ms": "6 Kuat", "tl": "6 Malakas",
+            "fr": "6 Fort", "de": "6 Stark", "it": "6 Forte", "es": "6 Superior", "ne": "6 बलियो",
+            "easy_ja": "しんど 6きょう",
+        },
+        "7": {
+            "ja": "震度7", "en": "7", "zh": "7", "zh-TW": "7", "ko": "7",
+            "vi": "7", "th": "7", "id": "7", "ms": "7", "tl": "7",
+            "fr": "7", "de": "7", "it": "7", "es": "7", "ne": "7",
+            "easy_ja": "しんど 7",
+        },
+    }
+
     def __init__(self):
         """初期化"""
         from ..config import settings
@@ -258,6 +324,8 @@ class TranslatorService:
         self.ai_provider = settings.ai_provider
 
         self.timeout = settings.api_timeout
+        self.translate_timeout = httpx.Timeout(settings.ai_timeout_translate, connect=5.0)
+        self.generate_timeout = httpx.Timeout(settings.ai_timeout_generate, connect=5.0)
         self._cache: dict[str, str] = {}
         self._cache_file = settings.translation_cache_file
         self._load_cache()
@@ -298,6 +366,45 @@ class TranslatorService:
     def _get_cache_key(self, text: str, target_lang: str) -> str:
         """キャッシュキーを生成"""
         return hashlib.md5(f"{text}:{target_lang}".encode()).hexdigest()
+
+    def _extract_json(self, content: str) -> Optional[dict]:
+        """
+        AI応答からJSONを堅牢に抽出する（3段階フォールバック）
+
+        Args:
+            content: AI応答テキスト
+
+        Returns:
+            パースされた辞書、失敗時はNone
+        """
+        # 第1段階: 直接パース
+        try:
+            return json.loads(content)
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+        # 第2段階: マークダウンコードブロック抽出
+        if "```" in content:
+            try:
+                code_block = content.split("```")[1]
+                if code_block.startswith("json"):
+                    code_block = code_block[4:]
+                return json.loads(code_block.strip())
+            except (json.JSONDecodeError, ValueError, IndexError):
+                pass
+
+        # 第3段階: ブレース抽出（最初の { から最後の } まで）
+        first_brace = content.find("{")
+        last_brace = content.rfind("}")
+        if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+            try:
+                result = json.loads(content[first_brace:last_brace + 1])
+                logger.warning("JSON fallback extraction used")
+                return result
+            except (json.JSONDecodeError, ValueError):
+                pass
+
+        return None
 
     async def translate_location(self, location: str, target_lang: str) -> str:
         """
@@ -388,8 +495,6 @@ class TranslatorService:
             翻訳されたテキスト
         """
         try:
-            import httpx
-
             target_name = self.LANG_NAMES.get(target_lang, target_lang)
 
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.gemini_model}:generateContent?key={self.gemini_api_key}"
@@ -409,7 +514,7 @@ class TranslatorService:
                             "temperature": 0.1
                         }
                     },
-                    timeout=self.timeout
+                    timeout=self.translate_timeout
                 )
 
                 if response.status_code == 200:
@@ -435,8 +540,6 @@ class TranslatorService:
             翻訳されたテキスト
         """
         try:
-            import httpx
-
             target_name = self.LANG_NAMES.get(target_lang, target_lang)
 
             async with httpx.AsyncClient() as client:
@@ -455,7 +558,7 @@ class TranslatorService:
                             "content": f"Translate this Japanese earthquake location name to {target_name}. Only output the translation, nothing else.\n\n{text}"
                         }]
                     },
-                    timeout=self.timeout
+                    timeout=self.translate_timeout
                 )
 
                 if response.status_code == 200:
@@ -487,6 +590,22 @@ class TranslatorService:
             return self.TSUNAMI_TRANSLATIONS[warning].get(target_lang, warning)
 
         return warning
+
+    def translate_intensity(self, intensity: str, target_lang: str) -> str:
+        """
+        震度を翻訳（静的マッピングのみ、APIコール不要）
+
+        Args:
+            intensity: 震度文字列（例: "3", "5弱", "6強"）
+            target_lang: 翻訳先言語コード
+
+        Returns:
+            翻訳された震度文字列
+        """
+        if target_lang == "ja":
+            return self.INTENSITY_TRANSLATIONS.get(intensity, {}).get("ja", intensity)
+
+        return self.INTENSITY_TRANSLATIONS.get(intensity, {}).get(target_lang, intensity)
 
     async def translate(
         self,
@@ -818,8 +937,6 @@ Important:
         Gemini APIを使用して警報テキストを生成
         """
         try:
-            import httpx
-
             prompt = self._build_warning_prompt(warning_name_ja, target_lang, area_name, severity)
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.gemini_model}:generateContent?key={self.gemini_api_key}"
 
@@ -836,28 +953,21 @@ Important:
                             "temperature": 0.1
                         }
                     },
-                    timeout=self.timeout
+                    timeout=self.generate_timeout
                 )
 
                 if response.status_code == 200:
                     data = response.json()
                     content = data["candidates"][0]["content"]["parts"][0]["text"].strip()
-                    # JSONをパース（マークダウンのコードブロックを除去）
-                    if content.startswith("```"):
-                        content = content.split("```")[1]
-                        if content.startswith("json"):
-                            content = content[4:]
-                    content = content.strip()
-                    try:
-                        result = json.loads(content)
+                    result = self._extract_json(content)
+                    if result:
                         return {
                             "name": result.get("name", warning_name_ja),
                             "description": result.get("description", ""),
                             "action": result.get("action", "")
                         }
-                    except json.JSONDecodeError:
-                        logger.warning(f"Gemini応答のJSONパースエラー: {content}")
-                        return None
+                    logger.warning(f"Gemini応答のJSONパースエラー: {content[:200]}")
+                    return None
                 else:
                     logger.warning(f"Gemini API error: {response.status_code}")
                     return None
@@ -877,8 +987,6 @@ Important:
         Claude APIを使用して警報テキストを生成
         """
         try:
-            import httpx
-
             prompt = self._build_warning_prompt(warning_name_ja, target_lang, area_name, severity)
 
             async with httpx.AsyncClient() as client:
@@ -897,22 +1005,21 @@ Important:
                             "content": prompt
                         }]
                     },
-                    timeout=self.timeout
+                    timeout=self.generate_timeout
                 )
 
                 if response.status_code == 200:
                     data = response.json()
                     content = data["content"][0]["text"].strip()
-                    try:
-                        result = json.loads(content)
+                    result = self._extract_json(content)
+                    if result:
                         return {
                             "name": result.get("name", warning_name_ja),
                             "description": result.get("description", ""),
                             "action": result.get("action", "")
                         }
-                    except json.JSONDecodeError:
-                        logger.warning(f"Claude応答のJSONパースエラー: {content}")
-                        return None
+                    logger.warning(f"Claude応答のJSONパースエラー: {content[:200]}")
+                    return None
                 else:
                     logger.warning(f"Claude API error: {response.status_code}")
                     return None
@@ -1087,8 +1194,6 @@ Important guidelines:
     ) -> Optional[dict]:
         """Gemini APIを使用して安全ガイドを生成"""
         try:
-            import httpx
-
             prompt = self._build_safety_guide_prompt(disaster_type, target_lang, location, severity)
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.gemini_model}:generateContent?key={self.gemini_api_key}"
 
@@ -1103,27 +1208,18 @@ Important guidelines:
                             "temperature": 0.2
                         }
                     },
-                    timeout=30.0  # 長めのタイムアウト
+                    timeout=self.generate_timeout
                 )
 
                 if response.status_code == 200:
                     data = response.json()
                     content = data["candidates"][0]["content"]["parts"][0]["text"].strip()
-
-                    # JSONをパース（マークダウンのコードブロックを除去）
-                    if content.startswith("```"):
-                        content = content.split("```")[1]
-                        if content.startswith("json"):
-                            content = content[4:]
-                    content = content.strip()
-
-                    try:
-                        result = json.loads(content)
+                    result = self._extract_json(content)
+                    if result:
                         result["cached"] = False
                         return result
-                    except json.JSONDecodeError:
-                        logger.warning(f"Gemini安全ガイドのJSONパースエラー: {content[:200]}")
-                        return None
+                    logger.warning(f"Gemini安全ガイドのJSONパースエラー: {content[:200]}")
+                    return None
                 else:
                     logger.warning(f"Gemini API error: {response.status_code}")
                     return None
@@ -1141,8 +1237,6 @@ Important guidelines:
     ) -> Optional[dict]:
         """Claude APIを使用して安全ガイドを生成"""
         try:
-            import httpx
-
             prompt = self._build_safety_guide_prompt(disaster_type, target_lang, location, severity)
 
             async with httpx.AsyncClient() as client:
@@ -1158,19 +1252,18 @@ Important guidelines:
                         "max_tokens": 1500,
                         "messages": [{"role": "user", "content": prompt}]
                     },
-                    timeout=30.0
+                    timeout=self.generate_timeout
                 )
 
                 if response.status_code == 200:
                     data = response.json()
                     content = data["content"][0]["text"].strip()
-                    try:
-                        result = json.loads(content)
+                    result = self._extract_json(content)
+                    if result:
                         result["cached"] = False
                         return result
-                    except json.JSONDecodeError:
-                        logger.warning(f"Claude安全ガイドのJSONパースエラー: {content[:200]}")
-                        return None
+                    logger.warning(f"Claude安全ガイドのJSONパースエラー: {content[:200]}")
+                    return None
                 else:
                     logger.warning(f"Claude API error: {response.status_code}")
                     return None

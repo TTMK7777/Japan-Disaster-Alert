@@ -6,23 +6,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { IntensityBadge, IntensityScale } from './IntensityGauge';
 import TsunamiAlert, { TsunamiLevelIndicator } from './TsunamiAlert';
-
-interface Earthquake {
-  id: string;
-  time: string;
-  location: string;
-  location_translated?: string;
-  magnitude: number;
-  max_intensity: string;
-  max_intensity_translated?: string;
-  depth: number;
-  latitude: number;
-  longitude: number;
-  tsunami_warning: string;
-  tsunami_warning_translated?: string;
-  message: string;
-  message_translated?: string;
-}
+import type { Earthquake } from '@/types/earthquake';
 
 interface EarthquakeMapProps {
   earthquakes: Earthquake[];
